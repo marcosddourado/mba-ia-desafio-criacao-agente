@@ -15,8 +15,11 @@
 > português, comentários curtos explicando o porquê, um `App` + um `Runner` +
 > um `session_service` globais em `web.py`, `db/` com `engine`/`models`/`repo`.
 >
-> **Estado em 2026-10-23.** Plano escrito. Nenhuma fase iniciada. A Fase 0 é
-> obrigatória e vem antes de tudo.
+> **Estado em 2026-10-23.** Fase 0 concluída: a retomada da confirmação passou
+> no ADK 2.2.0 com `SqliteSessionService` e reinício da API, **sem nenhuma
+> alavanca** (Registro #4). Harness de verificação criado em `.claude/agents/`
+> e obrigatório no fim de toda fase (seção "Harness de verificação"). Próxima:
+> Fase 1.
 
 ---
 
@@ -60,6 +63,10 @@ parênteses.
     das decisões (`ResumabilityConfig`, versão do ADK, topologia A) entra no
     código sem estar registrada na tabela
     [Estado das alavancas](#estado-das-alavancas).
+12. **Toda fase termina com o harness** (`/harness fase-N`): simplificar →
+    revisar → testar → conformidade → live, nessa ordem, com o relatório no
+    Registro. Fase sem relatório do harness não está pronta. (Seção
+    [Harness de verificação](#harness-de-verificação-obrigatório-ao-fim-de-cada-fase).)
 
 ---
 
@@ -101,6 +108,11 @@ parênteses.
 │   ├── decisoes-tecnicas.md
 │   ├── plano-de-execucao.md             # este arquivo
 │   └── enunciado.md                     # README original, movido na Fase 7
+├── tests/                               # harness: unit/ e e2e/ (pytest, grupo dev)
+├── .claude/
+│   ├── agents/                          # os 5 agentes do harness
+│   ├── skills/harness/SKILL.md          # /harness fase-N
+│   └── launch.json                      # preview da API no app (uv run uvicorn web:app --port 8000)
 └── .adk/                                # ignorado pelo Git
     ├── sessoes.db                       # SqliteSessionService
     ├── condominio.db                    # SQLAlchemy
@@ -124,8 +136,11 @@ previstas: `db/dados.py` (leitura dos JSON imutáveis, usada por tools e por
 - **Tarefa bloqueada ou alterada:** não apague o texto original. Acrescente
   ` — ⚠️ AAAA-MM-DD — ver Registro #N` e escreva a entrada no
   [Registro de execução](#registro-de-execução).
-- **Fase pronta:** só quando todas as tarefas estão `[x]` e o critério
-  "Pronto quando" foi executado e colado como evidência no fim da fase.
+- **Tarefa condicional não acionada** (o gatilho não ocorreu, como a escada de
+  alavancas): `- [x]` com ` — ⏭️ AAAA-MM-DD — não acionada: motivo`.
+- **Fase pronta:** só quando todas as tarefas estão `[x]`, o critério
+  "Pronto quando" foi executado e colado como evidência no fim da fase, e o
+  harness da fase rodou com relatório no Registro (seção seguinte).
 - **Ordem:** Fase 0 antes de tudo. As demais seguem a numeração; dentro de
   uma fase a ordem das tarefas é a sugerida, não obrigatória.
 - **Commits:** um por fase no mínimo (`feat: fase N — ...`), mais os que
@@ -136,6 +151,40 @@ previstas: `db/dados.py` (leitura dos JSON imutáveis, usada por tools e por
   e as tarefas F3.7 e F5.5 leem essa tabela antes de serem feitas.
 - **Saídas grandes** (eventos completos, dumps) ficam fora do Git. Cole no
   Registro só as linhas que provam o ponto.
+
+---
+
+## Harness de verificação (obrigatório ao fim de cada fase)
+
+Cinco agentes em `.claude/agents/`, rodados **nesta ordem** pelo comando
+`/harness fase-N` (`.claude/skills/harness/SKILL.md`), sempre sobre os arquivos
+que a fase criou ou alterou:
+
+| # | Agente | O que faz | Mexe em código? |
+|---|---|---|---|
+| 1 | `harness-simplificar` | Revisa reuso, simplificação, eficiência e altitude (o trabalho do `/simplify`) e aplica só correções que preservam comportamento | Sim, nos arquivos da fase |
+| 2 | `harness-revisar` | Code review à procura de bugs, lacunas e violações das regras do plano, com cenário de falha e severidade | Não (relata) |
+| 3 | `harness-testes` | Escreve/atualiza e roda `tests/unit` e `tests/e2e` (pytest + httpx contra o app); o que chama o Gemini fica atrás da marca `gemini` e só roda com `HARNESS_GEMINI=1` | Só em `tests/` |
+| 4 | `harness-conformidade` | Confere a implementação contra o enunciado (contrato, garantias, passos), as decisões e o "Pronto quando" da fase | Não (relata) |
+| 5 | `harness-live` | Sobe a API real na porta 8000 e executa o roteiro live da fase com `curl`, inclusive reinícios; colhe evidências | Não |
+
+Regras:
+
+- A ordem importa: o simplificador muda código antes dos testes; o live é o
+  último porque é o mais caro (Gemini real).
+- Agente que devolve **FALHOU**: corrigir, rodar de novo só aquele agente, no
+  máximo duas voltas; se persistir, registrar e parar antes do live. **ATENÇÃO**
+  é decisão item a item, registrada.
+- O relatório consolidado (agente → veredito → achados → ação) vira uma entrada
+  do Registro; a fase só é marcada depois disso.
+- Antes do `harness-live`, parar qualquer API já no ar na porta 8000. O 503
+  "high demand" do Gemini é transitório: os agentes repetem até 3 vezes antes
+  de acusar falha.
+- Os agentes não tocam em `dados/`, não commitam e não imprimem a chave. Quem
+  commita é a sessão principal, depois do Registro.
+- A Fase 0 foi implementada antes do harness existir e passou por ele em
+  seguida (Registro #7). Das fases 1 a 7, o harness faz parte do "Pronto
+  quando".
 
 ---
 
@@ -166,7 +215,7 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
 
 ### Tarefas
 
-- [ ] **F0.1 Bootstrap mínimo.** Criar `pyproject.toml` (nome
+- [x] **F0.1 Bootstrap mínimo.** Criar `pyproject.toml` (nome
   `residencial-aurora`, `requires-python = ">=3.12"`, dependências
   `google-adk===2.2.0`, `fastapi`, `uvicorn`, `sqlalchemy>=2.0`, `aiosqlite`,
   `asyncpg`, `python-dotenv`, `numpy`; a Fase 1 revisa), `.python-version`
@@ -176,11 +225,16 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
   `MODELO_ESPECIALISTAS=gemini-3.8-flash`. Conferir:
   `uv run python -c "from importlib.metadata import version; print(version('google-adk'))"`
   imprime `2.2.0`.
-- [ ] **F0.2 `env.py`.** Igual ao da referência: `load_dotenv()` e constantes
+  — ✅ 2026-10-23 — evidência: `google-adk 2.2.0` impresso; `uv.lock` com
+  `name = "google-adk"` / `version = "2.2.0"`; `uv sync` resolveu 62 pacotes;
+  `.env` local com 4 linhas, ignorado pelo Git; `pyproject.toml` já com o grupo
+  `dev` (pytest, pytest-asyncio, httpx) e a config do pytest para o harness.
+- [x] **F0.2 `env.py`.** Igual ao da referência: `load_dotenv()` e constantes
   `MODELO_PRINCIPAL`, `MODELO_ESPECIALISTAS`, `MODELO_EMBEDDINGS`
   (default `gemini-embedding-001`), `SESSION_DB_PATH` (default
   `<raiz>/.adk/sessoes.db`), `RAIZ = __file__.rsplit("/", 1)[0]`.
-- [ ] **F0.3 Agentes do spike** em `agents/residencial_aurora/agent.py`:
+  — ✅ 2026-10-23 — evidência: `env.py` (também expõe `DATABASE_URL` opcional).
+- [x] **F0.3 Agentes do spike** em `agents/residencial_aurora/agent.py`:
   - tool `reservar_area(area: str, data: str, tool_context: ToolContext) -> dict`
     com o esqueleto da seção 7 das decisões (taxa fixa `150.0` para
     `salao-de-festas`, `0` para `quadra`), gravando em
@@ -194,7 +248,10 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
     mode="chat", sub_agents=[especialista_reservas], instruction=<curta>)`;
   - `app = App(root_agent=root_agent, name="residencial_aurora")` — **sem**
     `ResumabilityConfig`.
-- [ ] **F0.4 `web.py` do spike.** Copiar a montagem de `web.py` da referência:
+  — ✅ 2026-10-23 — evidência: `agents/residencial_aurora/agent.py`; a
+  verificação estática imprimiu `especialista_reservas chat gemini-3.8-flash |
+  to_parent: False | to_peers: True`, `resumability: None`, sem `task`.
+- [x] **F0.4 `web.py` do spike.** Copiar a montagem de `web.py` da referência:
   `os.makedirs(.adk)`, `session_service = SqliteSessionService(SESSION_DB_PATH)`
   (`from google.adk.sessions.sqlite_session_service import SqliteSessionService`),
   `runner = Runner(app=app, session_service=session_service)`. Mapa
@@ -208,7 +265,10 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
   `GET /apartamentos/{n}/reservas` lendo o JSON do spike. As rotas de
   mensagem e confirmação **releem a sessão depois do `run_async`** e montam
   `{"resposta", "confirmacoes_pendentes"}` a partir dela.
-- [ ] **F0.5 Roteiro dos itens 1–5.** Subir com `uv run uvicorn web:app --port 8000`
+  — ✅ 2026-10-23 — evidência: `web.py`; rotas registradas: `/sessoes`,
+  `/sessoes/{session_id}/mensagens`, `/sessoes/{session_id}/confirmacoes`,
+  `/sessoes/{session_id}/eventos`, `/apartamentos/{numero}/reservas`.
+- [x] **F0.5 Roteiro dos itens 1–5.** Subir com `uv run uvicorn web:app --port 8000`
   e executar, anotando status e corpo de cada passo:
 
   ```bash
@@ -240,14 +300,24 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
   se o dump sair em camelCase, use `functionResponse`). O sinal da armadilha
   é: `200`, `author` da raiz (`assistente`) depois da resposta, nenhum
   `function_response` de `reservar_area`, nada gravado.
-- [ ] **F0.6 Escada de alavancas** — só se o item 3 falhar. Tentar nesta ordem,
+  — ✅ 2026-10-23 — evidência (sessão `6960d35d…`, detalhes no Registro #4):
+  item 1 → `200`, `confirmacoes_pendentes` = `[{"acao": "reservar_area",
+  "detalhes": {"area": "salao-de-festas", "data": "2030-04-20", "taxa": 150.0}}]`,
+  reservas `[]`; item 2 → `200`, lista vazia, reservas `[]`; item 3 → 19
+  eventos antes e depois do reinício, aprovação `200` com
+  `RSV-3DE0B09B`, autores novos `["user", "especialista_reservas",
+  "especialista_reservas"]`, `function_response` de `reservar_area` =
+  `reservada`, reservas com 1 item; item 4 → `409`, continua 1; item 5 → `409`.
+  `GET /sessoes/sessao-inexistente/eventos` → `404`.
+- [x] **F0.6 Escada de alavancas** — só se o item 3 falhar. — ⏭️ 2026-10-23 —
+  não acionada: o item 3 passou na primeira tentativa (Registro #4). Tentar nesta ordem,
   uma por vez, repetindo o roteiro inteiro de F0.5 a cada tentativa e
   registrando o resultado no Registro:
-  - [ ] **F0.6a** conferir que `especialista_reservas` não tem
+  - [x] ⏭️ **F0.6a** conferir que `especialista_reservas` não tem
     `disallow_transfer_to_parent=True` e que a raiz não tem sub-agente `task`
     (`runners.py::_is_transferable_across_agent_tree` e o bloco
     `has_task_subagent` em `Runner.run_async`);
-  - [ ] **F0.6b** `App(..., resumability_config=ResumabilityConfig(is_resumable=True))`
+  - [x] ⏭️ **F0.6b** `App(..., resumability_config=ResumabilityConfig(is_resumable=True))`
     (`from google.adk.apps import ResumabilityConfig`). Com isso o Runner
     passa a rotear pelo **autor da function call** e exige `invocation_id`
     coerente: a rota de confirmação passa a chamar
@@ -255,22 +325,26 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
     Atenção à semântica *at-least-once* da retomada: as tools de escrita
     precisam ser idempotentes (a reserva fica pelo índice único de F2.2; o
     visitante pelo `UNIQUE(apartamento, nome, data)`);
-  - [ ] **F0.6c** **parar e propor ao Marcos** subir para `google-adk===2.12.0`
+  - [x] ⏭️ **F0.6c** **parar e propor ao Marcos** subir para `google-adk===2.12.0`
     ou `2.13.0` (correções listadas na seção 3 das decisões). Não aplicar sem
     resposta dele; registrar a proposta;
-  - [ ] **F0.6d** topologia A (D2): mover `reservar_area` e
+  - [x] ⏭️ **F0.6d** topologia A (D2): mover `reservar_area` e
     `autorizar_visitante` para o principal, mantendo os especialistas de
     leitura. Tools, banco e API não mudam.
-- [ ] **F0.7 Registrar o resultado.** Entrada no Registro com: o que passou,
+- [x] **F0.7 Registrar o resultado.** Entrada no Registro com: o que passou,
   qual alavanca ficou em uso (ou nenhuma), o trecho de `jq '.[].author'` que
   prova a retomada, e a confirmação de que `.adk/sessoes.db` guardou o pedido
   (`sqlite3 .adk/sessoes.db .dump | grep -c adk_request_confirmation` ≥ 1).
   Atualizar a tabela [Estado das alavancas](#estado-das-alavancas). Se
   alguma alavanca entrou, marcar em F3.7 e F5.5 o que muda.
+  — ✅ 2026-10-23 — evidência: Registro #4; tabela de alavancas com "não"
+  em todas; `sqlite3 .adk/sessoes.db .dump | grep -c adk_request_confirmation`
+  → `3` antes do reinício. F3.7 e F5.5 seguem o texto do plano.
 
 **Pronto quando.** Os itens 1–5 passam com a API reiniciada entre o pedido e
 a aprovação do item 3; F0.7 está no Registro; a tabela de alavancas está
 preenchida; `git status` não mostra `.env`, `.adk/` nem `*.db`.
+— ✅ 2026-10-23: tudo conferido (Registro #4). Harness da Fase 0: Registro #7.
 
 ---
 
@@ -329,7 +403,7 @@ sensível versionado, mesmas conveniências da referência.
 
 **Pronto quando.** `rm -rf .venv && uv sync` termina sem erro;
 `uv run python -c "import google.adk, fastapi, sqlalchemy, aiosqlite, numpy, dotenv; print('ok')"`
-imprime `ok`; F1.1 e F1.7 conferidos; commit `feat: fase 1 — esqueleto do projeto`.
+imprime `ok`; F1.1 e F1.7 conferidos; commit `feat: fase 1 — esqueleto do projeto`; `/harness fase-1` com relatório no Registro.
 
 ---
 
@@ -426,7 +500,7 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
 lista `RSV-1377`, `RSV-4821`, `RSV-2950` ativas;
 `sqlite3 .adk/condominio.db ".schema reservas"` mostra o índice com
 `WHERE status = 'ativa'`; `ls .adk/sessoes.db` falha depois da restauração;
-F2.6 passou 3 vezes; commit `feat: fase 2 — banco do condomínio`.
+F2.6 passou 3 vezes; commit `feat: fase 2 — banco do condomínio`; `/harness fase-2` com relatório no Registro.
 
 ---
 
@@ -547,7 +621,7 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
 
 **Pronto quando.** F3.8 imprime `ok`; F3.9 conferido e colado como evidência;
 `grep -rn "apartamento:" agents/residencial_aurora/tools/` não mostra
-parâmetro de função; commit `feat: fase 3 — tools e agentes`.
+parâmetro de função; commit `feat: fase 3 — tools e agentes`; `/harness fase-3` com relatório no Registro.
 
 ---
 
@@ -651,7 +725,7 @@ o regulamento.
 **Pronto quando.** F4.1 confere 96 artigos e 14 capítulos; `.adk/regulamento.index.json`
 existe depois da primeira consulta e a segunda consulta não chama
 `embed_content` para documentos (log); F4.7 anotado; F4.8 passa; F3.8
-repetido com os três especialistas; commit `feat: fase 4 — regulamento por RAG`.
+repetido com os três especialistas; commit `feat: fase 4 — regulamento por RAG`; `/harness fase-4` com relatório no Registro.
 
 ---
 
@@ -730,10 +804,19 @@ rotas de verificação lendo o banco direto.
   curl -s -o /dev/null -w '%{http_code}\n' -X POST $B/sessoes/$S1/confirmacoes -H "$J" -d '{"id":"id-inexistente","confirmado":true}'  # 409
   ```
 
+- [ ] **F5.11 Erro do modelo não vira 500.** Em `_rodar`, capturar
+  `google.genai.errors.APIError` (inclui o `ServerError` 503 "high demand" visto
+  na Fase 0, Registro #5) e responder `HTTPException(503, detail="O modelo está
+  indisponível no momento; repita a mensagem.")`. Não grava nada no banco; o
+  turno parcial que o ADK deixou na sessão é inofensivo (o próximo turno segue).
+  Conferir forçando um modelo inexistente em `MODELO_PRINCIPAL` e enviando uma
+  mensagem → `503` com o `detail` acima, e `GET /eventos` continua `200`.
+
 **Pronto quando.** F5.10 devolve os códigos indicados; os itens 1–5 da Fase 0
 repassam com este `web.py` **duas vezes**: com `reservar_area` (passos 7 e 8)
 e com `autorizar_visitante` (passo 11), ambas com a API reiniciada entre o
-pedido e a aprovação; commit `feat: fase 5 — API no contrato do enunciado`.
+pedido e a aprovação; commit `feat: fase 5 — API no contrato do enunciado`;
+`/harness fase-5` com relatório no Registro.
 
 ---
 
@@ -795,7 +878,7 @@ evidências.
   `description` que tenha sido necessário para o roteamento acertar.
 
 **Pronto quando.** Os 14 passos conferidos e registrados; F6.6 passou 3
-vezes; `api.http` versionado; commit `feat: fase 6 — api.http e passagem pelo fluxo do avaliador`.
+vezes; `api.http` versionado; commit `feat: fase 6 — api.http e passagem pelo fluxo do avaliador`; `/harness fase-6` com relatório no Registro.
 
 ---
 
@@ -860,7 +943,8 @@ seções exigidas, apontando arquivos e trechos que existem.
   depois.
 
 **Pronto quando.** README com as três seções; F7.5 e F7.6 vazios; F7.7
-passou; commit `docs: README da entrega`; tudo em `main`.
+passou; commit `docs: README da entrega`; `/harness fase-7` com relatório no
+Registro; tudo em `main`.
 
 ---
 
@@ -957,6 +1041,7 @@ passou; commit `docs: README da entrega`; tudo em `main`.
 | 4 | Primeira consulta lenta (construção do índice) ou cota de embeddings | timeout no passo 12 | tempo da primeira resposta | Lotes de 32; índice em cache; opcionalmente fazer uma consulta antes da avaliação |
 | 4 | Regulamento entrando na instrução de algum agente | `grep -rn "Art\." agents/` acha instrução | F3.8 | Regra 5; só a tool lê o arquivo |
 | 5 | O spike só provou a retomada em `especialista_reservas`; `autorizar_visitante` vive em outro especialista `chat` (passo 11) | aprovação do visitante responde `200` e não grava | repetir os itens 1–5 de F0.5 com o passo 11, com reinício ("Pronto quando" da Fase 5) | Mesmas flags de F3.4 em F3.5; se falhar só ali, comparar `jq '.[].author'` dos dois casos antes de mexer em alavanca |
+| 5 | 503 "high demand" do Gemini vira 500 na API e deixa um turno parcial na sessão (visto na Fase 0) | `500` na rota de mensagens, log com `ServerError: 503 UNAVAILABLE` | F5.11; o live repete até 3 vezes | F5.11 responde `503` com `detail`; cliente repete; `ModelRetryPlugin` não cobre esse caso (é erro de transporte, não resposta vazia) |
 | 5 | `resposta` nula em vez de `""` ao pausar | contrato quebrado | F5.10 | `_montar_resposta` com `texto or ""` |
 | 5 | Pendência derivada errada (id da call original em vez da `adk_request_confirmation`) | `409` em id válido | item 4 de F0.5 | Usar `fc.id` da call `adk_request_confirmation`, `response={"confirmed": bool}` |
 | 5 | `user_id` errado no `get_session` | `404` em sessão existente | F5.10 | `user_id` = apartamento da tabela `sessoes` |
@@ -982,10 +1067,10 @@ texto do plano.
 
 | Alavanca (seção 6 das decisões) | Em uso? | Decidido em | Evidência |
 |---|---|---|---|
-| 1. Conferir flags (`disallow_transfer_to_parent`, sub-agente `task`) | — | | |
-| 2. `ResumabilityConfig(is_resumable=True)` + `invocation_id` na retomada | não | | |
-| 3. Subir o ADK para 2.12.0/2.13.0 (só com aval do Marcos) | não | | |
-| 4. Topologia A (tools de confirmação no principal) | não | | |
+| 1. Conferir flags (`disallow_transfer_to_parent`, sub-agente `task`) | conferida (ok) | 2026-10-23 | F0.3: `to_parent: False`, `to_peers: True`, sem `task` |
+| 2. `ResumabilityConfig(is_resumable=True)` + `invocation_id` na retomada | **não** | 2026-10-23 | Registro #4: retomada passou sem ela |
+| 3. Subir o ADK para 2.12.0/2.13.0 (só com aval do Marcos) | **não** | 2026-10-23 | Registro #4: 2.2.0 mantido |
+| 4. Topologia A (tools de confirmação no principal) | **não** | 2026-10-23 | Registro #4: topologia B mantida |
 
 ### Entradas
 
@@ -1006,3 +1091,49 @@ texto do plano.
   (`on_tool_error_callback`). `asyncpg` entra nas dependências para que
   `DATABASE_URL` com Postgres funcione sem mudar código (D4); não há
   `docker-compose.yml` neste repositório.
+- **#4 · 2026-10-23 · spike · Fase 0 (F0.5/F0.7).** Itens 1–5 da seção 6 das
+  decisões **passaram na primeira tentativa**, em `google-adk===2.2.0`, com
+  `SqliteSessionService` em `.adk/sessoes.db`, topologia B (`assistente` chat →
+  `especialista_reservas` chat, `disallow_transfer_to_peers=True`, sem
+  `disallow_transfer_to_parent`, sem `task`, sem `ResumabilityConfig`), modelos
+  `gemini-3.5-flash-lite` (principal) e `gemini-3.8-flash` (especialista).
+  Sessão `6960d35d-ac03-47d5-b757-ebdefd341500`, apartamento 101:
+  - item 1: `POST /mensagens` "Reserve o salão de festas para 2030-04-20." →
+    `200`, `resposta` do especialista dizendo que aguarda confirmação pelo
+    aplicativo, `confirmacoes_pendentes` = 1 item (`id` `adk-e772b75f…`,
+    `acao` `reservar_area`, `detalhes` `{area, data, taxa: 150.0}`);
+    `GET /apartamentos/101/reservas` = `[]`;
+  - item 2: `confirmado: false` → `200`, "nada foi reservado", lista vazia,
+    reservas `[]`; `function_response` de `reservar_area` = `nao_confirmada`;
+  - item 3: novo pedido → pendência `adk-764c291f…`; **API parada e subida de
+    novo** (19 eventos antes, 19 depois; `sqlite3 .adk/sessoes.db .dump | grep -c
+    adk_request_confirmation` = 3); `confirmado: true` → `200`, "reservado com
+    sucesso… RSV-3DE0B09B"; autores dos eventos novos = `["user",
+    "especialista_reservas", "especialista_reservas"]`; sequência de
+    `function_response` de `reservar_area` = `[aguardando_confirmacao,
+    nao_confirmada, aguardando_confirmacao, reservada]`; reservas = 1 item;
+  - item 4: mesmo `id` → `409`, reservas continuam 1;
+  - item 5: `id-inexistente` → `409`; `GET /sessoes/sessao-inexistente/eventos`
+    → `404`. Total: 22 eventos.
+  Conclusão: no 2.2.0, sem resumability, `Runner._find_agent_to_run` escolheu o
+  último autor transferível (o especialista) e o processador de confirmação
+  reexecutou a tool uma vez. **Nenhuma alavanca entra em uso**; F3.7 e F5.5
+  seguem o texto do plano.
+- **#5 · 2026-10-23 · desvio · Fase 0.** Duas vezes a **primeira** chamada ao
+  especialista (`gemini-3.8-flash`) recebeu `503 UNAVAILABLE` ("This model is
+  currently experiencing high demand") do Gemini; o cliente `google-genai` já
+  repete internamente e ainda assim falhou; a API respondeu `500` e o turno
+  parcial (user + transferência do `assistente`) ficou gravado na sessão. A
+  repetição da mesma chamada 5 s depois funcionou e a sessão seguiu normal.
+  Ações: tarefa nova **F5.11** (erro do modelo → `503` com `detail`), risco
+  novo na Fase 5, e o `harness-live` repete chamadas 5xx até 3 vezes. Não é
+  motivo para trocar de modelo; se virar frequente, D5 prevê
+  `gemini-3.6-flash` pelo `.env`.
+- **#6 · 2026-10-23 · decisão · harness.** Criados os cinco agentes do harness
+  em `.claude/agents/` (`harness-simplificar`, `harness-revisar`,
+  `harness-testes`, `harness-conformidade`, `harness-live`), o comando
+  `/harness fase-N` em `.claude/skills/harness/SKILL.md` e `.claude/launch.json`
+  para subir a API pelo app. A regra 12 e a seção "Harness de verificação"
+  tornam o harness obrigatório no "Pronto quando" das fases 1 a 7. O
+  `pyproject.toml` ganhou o grupo `dev` (pytest, pytest-asyncio, httpx) e a
+  config do pytest (marca `gemini` para testes que chamam o modelo).
