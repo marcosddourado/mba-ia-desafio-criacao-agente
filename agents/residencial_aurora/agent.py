@@ -37,6 +37,7 @@ def _ler_reservas() -> list[dict]:
 
 
 def _gravar_reservas(reservas: list[dict]) -> None:
+    # `adk web agents` carrega este módulo sem passar pelo `web.py`, que é quem cria `.adk/`.
     os.makedirs(os.path.dirname(ARQUIVO_RESERVAS), exist_ok=True)
     with open(ARQUIVO_RESERVAS, "w", encoding="utf-8") as arquivo:
         json.dump(reservas, arquivo, ensure_ascii=False, indent=2)
@@ -80,7 +81,7 @@ def reservar_area(area: str, data: str, tool_context: ToolContext) -> dict:
         return {"status": "nao_confirmada", "area": area, "data": data}
 
     reservas = _ler_reservas()
-    if any(r["area"] == area and r["data"] == data for r in reservas):
+    if any(reserva["area"] == area and reserva["data"] == data for reserva in reservas):
         return {"status": "indisponivel", "area": area, "data": data}
 
     reserva = {"codigo": _novo_codigo(), "apartamento": apartamento, "area": area, "data": data}

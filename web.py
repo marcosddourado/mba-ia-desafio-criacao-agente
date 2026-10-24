@@ -26,11 +26,10 @@ from google.adk.events import Event
 from google.adk.sessions import Session
 from google.adk.sessions.sqlite_session_service import SqliteSessionService
 from google.genai import types
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import env
-from agents.residencial_aurora.agent import ARQUIVO_RESERVAS
-from agents.residencial_aurora.agent import app as adk_app
+from agents.residencial_aurora.agent import ARQUIVO_RESERVAS, app as adk_app
 
 # Nome da function call que o `request_confirmation` de uma tool gera no stream
 # de eventos. É por ela que a pendência é detectada e a resposta é endereçada.
@@ -105,7 +104,7 @@ async def _carregar_sessao(session_id: str) -> Session:
     """Sessão do ADK a partir do `session_id` do contrato; 404 se não existe."""
     apartamento = _ler_json(ARQUIVO_SESSOES, {}).get(session_id)
     sessao = None
-    if apartamento:
+    if apartamento is not None:
         sessao = await session_service.get_session(
             app_name=runner.app_name, user_id=apartamento, session_id=session_id
         )
@@ -142,7 +141,7 @@ async def _rodar(sessao: Session, conteudo: types.Content) -> dict:
 
 
 class NovaSessaoRequest(BaseModel):
-    apartamento: str
+    apartamento: str = Field(min_length=1)
 
 
 @app.post("/sessoes", status_code=201)
@@ -160,7 +159,8 @@ async def criar_sessao(request: NovaSessaoRequest):
 
 
 class MensagemRequest(BaseModel):
-    texto: str
+    # Texto vazio chegaria ao modelo como turno invisível e viraria 400 → 500.
+    texto: str = Field(min_length=1)
 
 
 @app.post("/sessoes/{session_id}/mensagens")
@@ -220,7 +220,7 @@ async def listar_reservas(numero: str):
     # spike: lê o JSON do spike; na Fase 5 lê `repo.listar_reservas_ativas`.
     reservas = _ler_json(ARQUIVO_RESERVAS, [])
     return [
-        {"codigo": r["codigo"], "area": r["area"], "data": r["data"]}
-        for r in reservas
-        if r["apartamento"] == numero
+        {"codigo": reserva["codigo"], "area": reserva["area"], "data": reserva["data"]}
+        for reserva in reservas
+        if reserva["apartamento"] == numero
     ]

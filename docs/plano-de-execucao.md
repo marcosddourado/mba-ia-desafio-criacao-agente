@@ -18,8 +18,10 @@
 > **Estado em 2026-10-23.** Fase 0 concluída: a retomada da confirmação passou
 > no ADK 2.2.0 com `SqliteSessionService` e reinício da API, **sem nenhuma
 > alavanca** (Registro #4). Harness de verificação criado em `.claude/agents/`
-> e obrigatório no fim de toda fase (seção "Harness de verificação"). Próxima:
-> Fase 1.
+> e obrigatório no fim de toda fase (seção "Harness de verificação"); a Fase 0
+> passou por ele em 2026-10-24 (Registro #7). Próxima: Fase 1. Decisão
+> pendente do Marcos: manter `gemini-3.8-flash` nos especialistas apesar dos
+> 503 frequentes, ou trocar para `gemini-3.6-flash` pelo `.env` (D5).
 
 ---
 
@@ -222,7 +224,8 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
   com `3.12`, rodar `uv lock` e `uv sync`. Acrescentar `.adk/` e `*.db` ao
   `.gitignore`. Não copiar o `.env` da referência: criar um `.env` local
   só com `GOOGLE_API_KEY`, `MODELO_PRINCIPAL=gemini-3.5-flash-lite`,
-  `MODELO_ESPECIALISTAS=gemini-3.8-flash`. Conferir:
+  `MODELO_ESPECIALISTAS=gemini-3.8-flash`, `MODELO_EMBEDDINGS=gemini-embedding-001`.
+  Conferir:
   `uv run python -c "from importlib.metadata import version; print(version('google-adk'))"`
   imprime `2.2.0`.
   — ✅ 2026-10-23 — evidência: `google-adk 2.2.0` impresso; `uv.lock` com
@@ -236,8 +239,8 @@ e 5 reescrevem esses arquivos; o que for exclusivo do spike (os JSON em
   — ✅ 2026-10-23 — evidência: `env.py` (também expõe `DATABASE_URL` opcional).
 - [x] **F0.3 Agentes do spike** em `agents/residencial_aurora/agent.py`:
   - tool `reservar_area(area: str, data: str, tool_context: ToolContext) -> dict`
-    com o esqueleto da seção 7 das decisões (taxa fixa `150.0` para
-    `salao-de-festas`, `0` para `quadra`), gravando em
+    com o esqueleto da seção 7 das decisões (taxas fixas de `dados/areas.json`:
+    `150.0` salão, `80.0` churrasqueira, `0` quadra), gravando em
     `.adk/spike_reservas.json` (lista de `{"codigo","apartamento","area","data"}`,
     código `RSV-` + 8 hex de `uuid4`); `apartamento` lido de
     `tool_context.state["apartamento"]`;
@@ -763,18 +766,29 @@ rotas de verificação lendo o banco direto.
   `runner.run_async`, guarda o texto do último `event.is_final_response()`,
   relê a sessão e chama `_montar_resposta`.
 - [ ] **F5.3 `POST /sessoes`** (`status_code=201`). Body `{"apartamento": str}`
-  (`BaseModel`). `404` se `not dados.apartamento_existe(apartamento)` (M6).
+  (`BaseModel`, `Field(min_length=1)`: vazio → `422`). `404` se
+  `not dados.apartamento_existe(apartamento)` (M6).
   `session_service.create_session(app_name=runner.app_name, user_id=apartamento, state={"apartamento": apartamento})`,
   depois `repo.criar_sessao(sessao.id, apartamento)`. Resposta
   `{"session_id": sessao.id}`.
-- [ ] **F5.4 `POST /sessoes/{session_id}/mensagens`.** Body `{"texto": str}`.
-  `_carregar_sessao` (404). Se `_pendencias(sessao)` não está vazia →
+- [ ] **F5.4 `POST /sessoes/{session_id}/mensagens`.** Body `{"texto": str}`
+  com `Field(min_length=1)` (vazio → `422`; texto vazio chegaria ao modelo como
+  turno invisível e viraria 500, Registro #7). `_carregar_sessao` (404). Se
+  `_pendencias(sessao)` não está vazia →
   `HTTPException(409, detail={"mensagem": "Responda a confirmação pendente antes de enviar outra mensagem.", "confirmacoes_pendentes": [...]})`
-  (M5). Senão `_rodar(sessao, Content(role="user", parts=[Part.from_text(texto)]))`.
+  (M5). **Obrigatório, não opcional:** sem isso o especialista pode devolver a
+  conversa à raiz antes da confirmação e a retomada cai num agente sem a tool
+  (`ValueError: Tool 'reservar_area' not found` → 500, aprovação consumida e
+  perdida; Registro #7, achado 1). Senão
+  `_rodar(sessao, Content(role="user", parts=[Part.from_text(texto)]))`.
 - [ ] **F5.5 `POST /sessoes/{session_id}/confirmacoes`.** Body
   `{"id": str, "confirmado": bool}`. `_carregar_sessao` (404). Se `id` não
   está em `_pendencias(sessao)` → `HTTPException(409, detail="Não existe confirmação pendente com esse id nesta sessão.")`
-  — cobre id já respondido e id inexistente. Senão
+  — cobre id já respondido e id inexistente. Defesa extra (Registro #7,
+  achado 1): se o autor do último evento não-usuário for diferente do autor do
+  evento que carrega a `adk_request_confirmation` com esse `id`, responder
+  `409` com `detail` dizendo que a conversa saiu do especialista, **sem**
+  consumir a pendência. Senão
   `Content(role="user", parts=[Part(function_response=FunctionResponse(id=id, name=REQUEST_CONFIRMATION, response={"confirmed": confirmado}))])`
   e `_rodar`. **Se a alavanca F0.6b estiver em uso**, passar
   `invocation_id` do evento que carrega a function call com esse `id`.
@@ -811,6 +825,17 @@ rotas de verificação lendo o banco direto.
   turno parcial que o ADK deixou na sessão é inofensivo (o próximo turno segue).
   Conferir forçando um modelo inexistente em `MODELO_PRINCIPAL` e enviando uma
   mensagem → `503` com o `detail` acima, e `GET /eventos` continua `200`.
+  **Na rota de confirmações** a ordem dos processadores do ADK faz a tool
+  reexecutar e gravar **antes** da chamada ao modelo: ao capturar o erro,
+  reler a sessão; se já existe `function_response` da tool original depois do
+  evento do usuário, a ação executou → responder `200` com `resposta: ""` e as
+  pendências; só devolver `503` quando a tool não chegou a rodar (Registro #7,
+  achado 2). Vale o mesmo na rota de mensagens: o live da Fase 0 viu um 503
+  chegar **depois** de a `adk_request_confirmation` ter sido gravada, e o
+  cliente recebeu 500 sem o `id` de uma pendência que já existia. Regra única
+  para as duas rotas: capturou erro do modelo → reler a sessão → se o turno
+  deixou pendência nova ou `function_response` da tool, `200` com
+  `resposta: ""` e as pendências; senão `503`.
 
 **Pronto quando.** F5.10 devolve os códigos indicados; os itens 1–5 da Fase 0
 repassam com este `web.py` **duas vezes**: com `reservar_area` (passos 7 e 8)
@@ -1137,3 +1162,30 @@ texto do plano.
   tornam o harness obrigatório no "Pronto quando" das fases 1 a 7. O
   `pyproject.toml` ganhou o grupo `dev` (pytest, pytest-asyncio, httpx) e a
   config do pytest (marca `gemini` para testes que chamam o modelo).
+- **#7 · 2026-10-24 · harness · Fase 0.** Primeira rodada do harness, feita
+  depois da implementação (os agentes ainda não apareciam como
+  `subagent_type` nesta sessão; rodaram como `general-purpose` com a
+  definição de `.claude/agents/<nome>.md` no prompt, como prevê o SKILL.md).
+
+  | Agente | Veredito | Achados | Ação |
+  |---|---|---|---|
+  | harness-simplificar | PASSOU | 4 mudanças cosméticas (import unificado em `web.py`, `r`→`reserva` em dois lugares, comentário do `makedirs` em `agent.py`); duplicação proposital dos helpers JSON do spike deixada (sai em F2/F5.9) | aplicadas |
+  | harness-revisar | ATENÇÃO | 0 alta / 2 média / 3 baixa. (1) média: com pendência aberta, se o especialista devolver a conversa à raiz e depois chegar a aprovação, `_find_agent_to_run` entrega à raiz, que não tem a tool → `ValueError` → 500 e pendência consumida; (2) média: na aprovação a tool reexecuta e grava **antes** da chamada ao modelo, então um 503 depois disso vira 500 com a ação feita; (3) baixa: `texto` vazio → 500; (4) baixa: `apartamento` vazio cria sessão que dá 404; (5) baixa: leitura-modificação-escrita do JSON de sessões do spike sem lock | (1) M5 obrigatório em F5.4 + defesa do autor em F5.5; (2) incorporado a F5.11; (3) e (4) corrigidos agora com `Field(min_length=1)` → 422; (5) esperado no spike, sai em F5.9 |
+  | harness-testes | ATENÇÃO | `tests/` criado: 40 unit + 30 e2e, **67 passed / 0 failed / 3 skipped** (os 3 `gemini`, só com `HARNESS_GEMINI=1`); nenhum bug de produto; ATENÇÃO só porque os itens 1–4 de F0.5 dependem do modelo e ficaram nos testes pulados (cobertos pelo live) | mantido |
+  | harness-conformidade | PASSOU | 29 atende / 0 parcial / 0 falta (6 "não se aplica ainda": regra 6, `especialista_regulamento`, `.env.example`, M5, M6, rota de visitantes); contrato das rotas do spike literal; evidências de F0.1–F0.7 reproduzidas no `.adk/` real; 2 notas cosméticas no texto de F0.1/F0.3 | notas corrigidas no plano |
+  | harness-live | ATENÇÃO | 9 passos ok / 0 falhos, sessão `b2472a3e…`: retomada após reinício provada de novo (23 eventos antes e depois do reinício; aprovação `200` com `RSV-DCE9681F`; autores novos `["user", "especialista_reservas", "especialista_reservas"]`; `function_response` de `reservar_area` = `reservada`; reenvio `409`; `id-inexistente` `409`; sessão inexistente `404`; `apartamento` vazio `422`). **4 repetições por 503** "high demand" do `gemini-3.8-flash` (item 1: 1; item 3a: 3 de 3, e a 2ª tentativa gravou a `adk_request_confirmation` antes do 503, então a pendência existia nos eventos mas o cliente recebeu 500) | F5.11 ampliado (ver acima); decisão sobre o modelo levada ao Marcos |
+
+  Linhas dos agentes: "harness-simplificar · fase-0 · PASSOU · 4 mudanças" ·
+  "harness-revisar · fase-0 · ATENÇÃO · 0 alta / 2 média / 3 baixa" ·
+  "harness-testes · fase-0 · ATENÇÃO · 67 passed / 0 failed / 3 skipped" ·
+  "harness-conformidade · fase-0 · PASSOU · 29 atende / 0 parcial / 0 falta" ·
+  "harness-live · fase-0 · ATENÇÃO · 9 passos ok / 0 falhos".
+
+  Conclusão: a Fase 0 fica fechada; nenhum achado muda o desenho (topologia B,
+  2.2.0, sem alavanca). Os dois achados médios do revisor são de robustez da
+  API e já têm tarefa na Fase 5. **Ponto para decisão do Marcos (D5):** nas
+  duas rodadas live desta noite, 6 de 9 primeiras chamadas ao
+  `gemini-3.8-flash` deram 503; o fluxo do avaliador faz dezenas de chamadas.
+  Opções: manter o 3.8 contando com F5.11 e a repetição pelo cliente, ou
+  trocar `MODELO_ESPECIALISTAS` para `gemini-3.6-flash` no `.env`/`.env.example`
+  (sem mudar código). Até a decisão, o plano segue com o 3.8.
