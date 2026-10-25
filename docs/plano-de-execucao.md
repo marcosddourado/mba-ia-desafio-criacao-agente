@@ -19,9 +19,8 @@
 > no ADK 2.2.0 com `SqliteSessionService` e reinício da API, **sem nenhuma
 > alavanca** (Registro #4). Harness de verificação criado em `.claude/agents/`
 > e obrigatório no fim de toda fase (seção "Harness de verificação"); a Fase 0
-> passou por ele em 2026-10-24 (Registro #7). Próxima: Fase 1. Decisão
-> pendente do Marcos: manter `gemini-3.8-flash` nos especialistas apesar dos
-> 503 frequentes, ou trocar para `gemini-3.6-flash` pelo `.env` (D5).
+> passou por ele em 2026-10-24 (Registro #7). Modelo dos especialistas mantido
+> em `gemini-3.8-flash` por decisão do Marcos (Registro #8). Próxima: Fase 1.
 
 ---
 
@@ -1189,3 +1188,11 @@ texto do plano.
   Opções: manter o 3.8 contando com F5.11 e a repetição pelo cliente, ou
   trocar `MODELO_ESPECIALISTAS` para `gemini-3.6-flash` no `.env`/`.env.example`
   (sem mudar código). Até a decisão, o plano segue com o 3.8.
+- **#8 · 2026-10-25 · decisão · D5.** Marcos decidiu **manter
+  `gemini-3.8-flash`** em `MODELO_ESPECIALISTAS` apesar dos 503 "high demand"
+  vistos nas rodadas live da Fase 0 (Registro #5 e #7). A tolerância fica no
+  código e no cliente: F5.11 (erro do modelo → `503` com `detail`, ou `200`
+  quando o turno já deixou pendência ou gravou a tool) e a repetição da chamada
+  pelo cliente (o `harness-live` e o `api.http` repetem 5xx até 3 vezes). A
+  troca para `gemini-3.6-flash` continua disponível só pelo `.env`, sem mudar
+  código, se o avaliador relatar instabilidade.
