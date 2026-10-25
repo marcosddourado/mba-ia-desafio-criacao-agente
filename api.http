@@ -1,0 +1,122 @@
+# Assistente do Residencial Aurora — requisições prontas (REST Client do VS Code)
+#
+# Suba a API antes:   uv run uvicorn web:app --port 8000
+#
+# Os ids passam de uma requisição para a outra por VARIÁVEIS DE RESPOSTA
+# (`{{nome.response.body.$.campo}}`), então é só clicar em "Send Request" na
+# ordem. Esta versão cobre o roteiro da Fase 0 (itens 1–5 de F0.5 do plano);
+# a Fase 6 acrescenta os 14 passos do avaliador.
+
+@baseUrl = http://localhost:8000
+@apartamento = 101
+
+
+### 0. Cria a sessão do apartamento (o apartamento vira o user_id e entra no state)
+# @name sessao
+POST {{baseUrl}}/sessoes
+Content-Type: application/json
+
+{
+  "apartamento": "{{apartamento}}"
+}
+
+
+### 1. Pedido com taxa → 200 com 1 item em confirmacoes_pendentes e nada gravado
+@sessionId = {{sessao.response.body.$.session_id}}
+
+# @name pedido1
+POST {{baseUrl}}/sessoes/{{sessionId}}/mensagens
+Content-Type: application/json
+
+{
+  "texto": "Reserve o salão de festas para 2030-04-20."
+}
+
+
+### Reservas do apartamento (ainda sem o salão em 2030-04-20)
+GET {{baseUrl}}/apartamentos/{{apartamento}}/reservas
+
+
+### 2. Nega a confirmação → 200, lista vazia, nada gravado
+POST {{baseUrl}}/sessoes/{{sessionId}}/confirmacoes
+Content-Type: application/json
+
+{
+  "id": "{{pedido1.response.body.$.confirmacoes_pendentes[0].id}}",
+  "confirmado": false
+}
+
+
+### 3a. Pede de novo → nova pendência
+# @name pedido3
+POST {{baseUrl}}/sessoes/{{sessionId}}/mensagens
+Content-Type: application/json
+
+{
+  "texto": "Reserve o salão de festas para 2030-04-20."
+}
+
+
+### 3b. >>> AGORA PARE A API (Ctrl+C) E SUBA DE NOVO: uv run uvicorn web:app --port 8000 <<<
+### Depois confira que os eventos continuam lá (mesma quantidade de antes)
+GET {{baseUrl}}/sessoes/{{sessionId}}/eventos
+
+
+### 3c. Aprova depois do reinício → 200 com o código da reserva (RSV-...)
+POST {{baseUrl}}/sessoes/{{sessionId}}/confirmacoes
+Content-Type: application/json
+
+{
+  "id": "{{pedido3.response.body.$.confirmacoes_pendentes[0].id}}",
+  "confirmado": true
+}
+
+
+### Reservas do apartamento (exatamente 1 salão em 2030-04-20)
+GET {{baseUrl}}/apartamentos/{{apartamento}}/reservas
+
+
+### 4. Reenvia o mesmo id → 409 e a reserva continua uma só
+POST {{baseUrl}}/sessoes/{{sessionId}}/confirmacoes
+Content-Type: application/json
+
+{
+  "id": "{{pedido3.response.body.$.confirmacoes_pendentes[0].id}}",
+  "confirmado": true
+}
+
+
+### 5. Id inexistente → 409
+POST {{baseUrl}}/sessoes/{{sessionId}}/confirmacoes
+Content-Type: application/json
+
+{
+  "id": "id-inexistente",
+  "confirmado": true
+}
+
+
+### Todos os eventos da sessão, em ordem (procure os `author` e os function_response de reservar_area)
+GET {{baseUrl}}/sessoes/{{sessionId}}/eventos
+
+
+### Sessão inexistente → 404
+GET {{baseUrl}}/sessoes/sessao-inexistente/eventos
+
+
+### Apartamento vazio → 422 (validação do corpo; o contrato não define, mas evita 500)
+POST {{baseUrl}}/sessoes
+Content-Type: application/json
+
+{
+  "apartamento": ""
+}
+
+
+### Texto vazio → 422
+POST {{baseUrl}}/sessoes/{{sessionId}}/mensagens
+Content-Type: application/json
+
+{
+  "texto": ""
+}

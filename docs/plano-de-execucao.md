@@ -77,7 +77,7 @@ parênteses.
 .
 ├── web.py                               # FastAPI + App + Runner + SqliteSessionService (Fase 5)
 ├── env.py                               # load_dotenv + constantes (Fase 0/1)
-├── api.http                             # os 14 passos do avaliador (Fase 6)
+├── api.http                             # roteiro da Fase 0 hoje; os 14 passos do avaliador na Fase 6
 ├── pyproject.toml  uv.lock  .python-version
 ├── .env.example  .gitignore  .vscode/settings.json
 ├── agents/
@@ -108,6 +108,7 @@ parênteses.
 ├── docs/
 │   ├── decisoes-tecnicas.md
 │   ├── plano-de-execucao.md             # este arquivo
+│   ├── como-testar.md                   # guia de testes manuais, cresce a cada fase
 │   └── enunciado.md                     # README original, movido na Fase 7
 ├── tests/                               # harness: unit/ e e2e/ (pytest, grupo dev)
 ├── .claude/
@@ -371,8 +372,10 @@ sensível versionado, mesmas conveniências da referência.
   `uv sync`. Conferir: `grep -n 'google-adk===2.2.0' pyproject.toml` e
   `grep -A1 'name = "google-adk"' uv.lock | grep 'version = "2.2.0"'`.
 - [ ] **F1.2 `.python-version`** com `3.12` (igual à referência).
-- [ ] **F1.3 `.env.example`** comentado por seção como o da referência, sem
-  nenhum valor sensível (M8):
+- [x] **F1.3 `.env.example`** comentado por seção como o da referência, sem
+  nenhum valor sensível (M8): — ✅ 2026-10-25 — evidência: `.env.example`
+  criado antes da Fase 1 para o Marcos testar a Fase 0 (`docs/como-testar.md`);
+  conteúdo igual ao bloco abaixo.
 
   ```dotenv
   # Copie para `.env` na raiz do repositório: cp .env.example .env
