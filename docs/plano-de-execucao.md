@@ -15,12 +15,13 @@
 > português, comentários curtos explicando o porquê, um `App` + um `Runner` +
 > um `session_service` globais em `web.py`, `db/` com `engine`/`models`/`repo`.
 >
-> **Estado em 2026-10-23.** Fase 0 concluída: a retomada da confirmação passou
+> **Estado em 2026-10-28.** Fase 0 concluída: a retomada da confirmação passou
 > no ADK 2.2.0 com `SqliteSessionService` e reinício da API, **sem nenhuma
 > alavanca** (Registro #4). Harness de verificação criado em `.claude/agents/`
 > e obrigatório no fim de toda fase (seção "Harness de verificação"); a Fase 0
 > passou por ele em 2026-10-24 (Registro #7). Modelo dos especialistas mantido
-> em `gemini-3.8-flash` por decisão do Marcos (Registro #8). Próxima: Fase 1.
+> em `gemini-3.8-flash` por decisão do Marcos (Registro #8). Fase 1 concluída
+> em 2026-10-28, com harness no Registro #10. Próxima: Fase 2.
 
 ---
 
@@ -362,14 +363,21 @@ sensível versionado, mesmas conveniências da referência.
 
 ### Tarefas
 
-- [ ] **F1.1 `pyproject.toml` final.** Revisar o de F0.1: `description` em
+- [x] **F1.1 `pyproject.toml` final.** Revisar o de F0.1: `description` em
   português, `readme = "README.md"`, dependências com versões mínimas no
   estilo da referência (`"google-adk===2.2.0"`, `"fastapi>=0.133"`,
   `"uvicorn>=0.34"`, `"sqlalchemy>=2.0"`, `"aiosqlite>=0.21"`,
   `"asyncpg>=0.31"`, `"python-dotenv>=1"`, `"numpy>=2"`). Rodar `uv lock` e
   `uv sync`. Conferir: `grep -n 'google-adk===2.2.0' pyproject.toml` e
   `grep -A1 'name = "google-adk"' uv.lock | grep 'version = "2.2.0"'`.
-- [ ] **F1.2 `.python-version`** com `3.12` (igual à referência).
+  — ✅ 2026-10-28 — evidência: `grep -n 'google-adk===2.2.0' pyproject.toml` →
+  linha 8; `uv.lock` com `name = "google-adk"` / `version = "2.2.0"`;
+  `uv lock --check` → `Resolved 62 packages`; `rm -rf .venv && uv sync`
+  recriou o ambiente sem erro. O `pyproject.toml` já estava no formato final
+  desde F0.1 (sem diff).
+- [x] **F1.2 `.python-version`** com `3.12` (igual à referência).
+  — ✅ 2026-10-28 — evidência: `.python-version` = `3.12`; o `.venv` novo usa
+  Python 3.12.13.
 - [x] **F1.3 `.env.example`** comentado por seção como o da referência, sem
   nenhum valor sensível (M8): — ✅ 2026-10-25 — evidência: `.env.example`
   criado antes da Fase 1 para o Marcos testar a Fase 0 (`docs/como-testar.md`,
@@ -393,20 +401,49 @@ sensível versionado, mesmas conveniências da referência.
   # Arquivo das sessões do ADK. Default: .adk/sessoes.db
   # SESSION_DB_PATH=.adk/sessoes.db
   ```
-- [ ] **F1.4 `.gitignore`**: `.env`, `.venv/`, `__pycache__/`, `*.pyc`,
+- [x] **F1.4 `.gitignore`**: `.env`, `.venv/`, `__pycache__/`, `*.pyc`,
   `.adk/`, `*.db`, `.history/`.
-- [ ] **F1.5 `.vscode/settings.json`** copiado da referência (interpretador
+  — ✅ 2026-10-28 — evidência: os sete padrões já estavam no arquivo desde a
+  Fase 0; o harness acrescentou `.env.*` com `!.env.example`, `*.db-wal` e
+  `*.db-shm` (Registro #10). `git check-ignore` ignora `.env`, `.env.local` e
+  `.adk/condominio.db-wal`, e **não** ignora `.env.example` nem
+  `.vscode/settings.json`.
+- [x] **F1.5 `.vscode/settings.json`** copiado da referência (interpretador
   `.venv`, `PYTHONPATH=${workspaceFolder}`,
   `ADK_SUPPRESS_EXPERIMENTAL_FEATURE_WARNINGS=1`).
-- [ ] **F1.6 Pacotes vazios** (`__init__.py` listados acima) e `env.py` final
+  — ✅ 2026-10-28 — evidência: `.vscode/settings.json` (JSON válido) com as
+  três chaves em `terminal.integrated.env.osx` (a referência só tem `linux`,
+  e o Marcos usa macOS) e em `.linux`. Fora a variável
+  `ADK_DISABLE_JSON_SCHEMA_FOR_FUNC_DECL` da referência: não existe no ADK
+  2.2.0 instalado (`grep` em `google/adk` vazio) e o plano não a pede.
+- [x] **F1.6 Pacotes vazios** (`__init__.py` listados acima) e `env.py` final
   (acrescentar `DATABASE_URL` opcional, lido em `db/engine.py`).
-- [ ] **F1.7 Verificação de segredos.** `git ls-files | grep -E '(^|/)\.env$'`
-  vazio; `git grep -nE 'AIza[0-9A-Za-z_-]{20,}'` vazio; `.env.example`
-  versionado.
+  — ✅ 2026-10-28 — evidência: `__init__.py` de 0 bytes em `agents/`,
+  `agents/residencial_aurora/`, `…/subagents/`, `…/tools/` e `db/`;
+  `uv run python -c "import env, agents, agents.residencial_aurora, …, db"` →
+  `pacotes importam`. `env.py` com `DATABASE_URL` opcional e, nas cinco
+  leituras, `os.environ.get(k) or default`: variável em branco no `.env`
+  virava `""` (Registro #10); `MODELO_X= … import env` agora devolve os
+  defaults e `DATABASE_URL` `None`.
+- [x] **F1.7 Verificação de segredos.** `git ls-files | grep -E '(^|/)\.env$'`
+  vazio; `git grep -nE '(AIza|AQ\.)[0-9A-Za-z._-]{20,}'` vazio (a chave do
+  Marcos começa com `AQ.`, o regex só com `AIza` não a pegava, Registro #10);
+  `git grep -l --untracked -F -f <arquivo temporário com o valor do .env>`
+  vazio (não depende do formato; apagar o arquivo depois e nunca imprimir o
+  valor); `.env.example` versionado.
+  — ✅ 2026-10-28 — evidência: `git ls-files | grep -E '(^|/)\.env$'` vazio;
+  `git grep -nE '(AIza|AQ\.)[0-9A-Za-z._-]{20,}'` vazio; busca do valor
+  literal do `.env` (53 caracteres, prefixo `AQ.`) nos arquivos rastreados e
+  novos: 0 arquivos; no histórico (`git log --all -p`): 0 ocorrências; o
+  `.env` nunca entrou em nenhum commit; `.env.example` versionado.
 
 **Pronto quando.** `rm -rf .venv && uv sync` termina sem erro;
 `uv run python -c "import google.adk, fastapi, sqlalchemy, aiosqlite, numpy, dotenv; print('ok')"`
 imprime `ok`; F1.1 e F1.7 conferidos; commit `feat: fase 1 — esqueleto do projeto`; `/harness fase-1` com relatório no Registro.
+— ✅ 2026-10-28: `rm -rf .venv && uv sync` sem erro; `ok` impresso (google-adk
+2.2.0, fastapi 0.141.1, sqlalchemy 2.1.6, aiosqlite 0.22.1, numpy 2.5.4);
+F1.1 e F1.7 conferidos; `uv run pytest -q` → `117 passed, 3 skipped`;
+harness no Registro #10; commit `feat: fase 1 — esqueleto do projeto`.
 
 ---
 
@@ -425,7 +462,8 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
 
 ### Tarefas
 
-- [ ] **F2.1 `db/engine.py`.** `DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///<raiz>/.adk/condominio.db")`;
+- [ ] **F2.1 `db/engine.py`.** `DATABASE_URL = env.DATABASE_URL or "sqlite+aiosqlite:///<raiz>/.adk/condominio.db"`
+  (o `env.py` já trata `DATABASE_URL=` em branco como `None`, Registro #10; não ler `os.environ` direto);
   `os.makedirs(<raiz>/.adk, exist_ok=True)`;
   `engine = create_async_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"timeout": 30} se sqlite)`;
   listener `@event.listens_for(engine.sync_engine, "connect")` que executa
@@ -620,7 +658,10 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   (criar a sessão com estado via
   `POST http://localhost:8001/apps/residencial_aurora/users/101/sessions/<id>`
   com corpo `{"state": {"apartamento": "101"}}`; sem o estado as tools
-  devolvem o erro tratado "sessão sem apartamento").
+  devolvem o erro tratado "sessão sem apartamento"). **Conferir antes de
+  escrever a linha no README (Registro #10):** no `adk web` 2.2.0 esse corpo
+  devolveu `"state": {"state": {"apartamento": "101"}}` (aninhado), e fora do
+  terminal do VS Code a raiz pode não estar no `PYTHONPATH` (`import env`).
 
 **Pronto quando.** F3.8 imprime `ok`; F3.9 conferido e colado como evidência;
 `grep -rn "apartamento:" agents/residencial_aurora/tools/` não mostra
@@ -958,8 +999,9 @@ seções exigidas, apontando arquivos e trechos que existem.
   Saída vazia. Para cada `::funcao` citado, `grep -n "def funcao" arquivo`.
 - [ ] **F7.6 Checagens do passo 15.** `git fetch https://github.com/devfullcycle/mba-ia-desafio-criacao-agente main && git diff --stat FETCH_HEAD -- dados/`
   vazio (alternativa local: `git diff --stat be87e1d -- dados/`);
-  `git ls-files | grep -E '(^|/)\.env$'` vazio; `git grep -nE 'AIza[0-9A-Za-z_-]{20,}'`
-  vazio; `grep -n 'google-adk===2.2.0' pyproject.toml`; F3.8 repetido.
+  `git ls-files | grep -E '(^|/)\.env$'` vazio; `git grep -nE '(AIza|AQ\.)[0-9A-Za-z._-]{20,}'`
+  vazio e a busca do valor literal do `.env` vazia (comando de F1.7);
+  `grep -n 'google-adk===2.2.0' pyproject.toml`; F3.8 repetido.
 - [ ] **F7.7 Clone limpo.** `git clone <repo> /tmp/aurora-teste && cd /tmp/aurora-teste && cp .env.example .env`
   (preencher a chave), `uv sync`, `uv run python -m db.restaurar`,
   `uv run uvicorn web:app --port 8000`, e o passo 1 do avaliador
@@ -1051,7 +1093,7 @@ Registro; tudo em `main`.
 | 0 | Sessão não persistiu o pedido (`long_running_tool_ids`/`args`) | pendência some após reinício | `sqlite3 .adk/sessoes.db .dump \| grep -c adk_request_confirmation` | Confirmar `SqliteSessionService` (não `InMemory`), caminho absoluto em `.adk/` |
 | 0 | Alavanca 2 (`ResumabilityConfig`) reexecuta a tool mais de uma vez (*at-least-once*) | duas reservas / dois visitantes | rotas de verificação | Índice único parcial e `UNIQUE(apartamento,nome,data)` já tornam as escritas idempotentes |
 | 1 | `uv sync` falha no avaliador por dependência pesada | erro de build | `rm -rf .venv && uv sync` | Manter a lista mínima; `asyncpg` só porque D4 pede troca por env |
-| 1 | Chave vazando em commit | `git grep` acha `AIza` | F1.7, F7.6 | `.env` no `.gitignore` antes do primeiro commit com `.env` local |
+| 1 | Chave vazando em commit | `git grep` acha `AIza`/`AQ.` ou o valor literal do `.env` | F1.7, F7.6 | `.env` no `.gitignore` antes do primeiro commit com `.env` local |
 | 2 | "database is locked" na disputa | 500 em uma das aprovações | F2.6 ×3, F6.6 ×3 | WAL + `busy_timeout` + `connect_args={"timeout": 30}` (F2.1) |
 | 2 | Índice parcial não criado (sintaxe `sqlite_where`) ou ignorado no Postgres | duas reservas ativas | `.schema reservas` mostra `WHERE status = 'ativa'`; F2.6 | `Index(..., unique=True, sqlite_where=text(...), postgresql_where=text(...))` |
 | 2 | Restauração deixa `sessoes.db-wal`/`-shm` e a sessão "ressuscita" | eventos antigos após restaurar | `ls .adk/` após restaurar | F2.5 apaga os três arquivos |
@@ -1210,3 +1252,42 @@ texto do plano.
   "Fora de escopo"), `.claude/` (harness e `launch.json`) e o plano e as
   decisões em `docs/`. O harness da regra 12 usa `tests/` e `.claude/` em
   toda fase.
+- **#10 · 2026-10-28 · harness · Fase 1.** Rodada do harness depois de F1.1–F1.7,
+  com `rm -rf .venv && uv sync` já feito. Os agentes apareceram como
+  `subagent_type` e rodaram em sequência.
+
+  | Agente | Veredito | Achados | Ação |
+  |---|---|---|---|
+  | harness-simplificar | PASSOU | 0 mudanças (nada duplicado, sem ramo morto; os cinco `__init__.py` têm 0 bytes como os da referência) | — |
+  | harness-revisar | ATENÇÃO | 0 alta / 1 média / 4 baixa. (1) média: o regex `AIza…` de F1.7/F7.6 não casa com a chave do Marcos (53 caracteres, prefixo `AQ.`), então um vazamento passaria; (2) baixa: `PYTHONPATH` só vale no terminal do VS Code, e fora dele `adk web` pode não achar `import env`; (3) baixa: `.env.example` traz valores de `MODELO_*` (o enunciado diz "sem valores") e `os.environ.get(k, default)` devolvia `""` para variável em branco; (4) baixa: `.env.*` e `*.db-wal`/`*.db-shm` fora do `.gitignore`; (5) baixa: `RAIZ = __file__.rsplit("/", 1)[0]` só serve a separador POSIX | (1) aplicado: regex `(AIza\|AQ\.)[0-9A-Za-z._-]{20,}` mais busca do valor literal do `.env` em F1.7, F7.6 e na linha de risco; as duas buscas deram vazio, inclusive no histórico. (2) não confirmado: o revisor emulou o `AgentLoader`; no `adk web` real a criação de sessão não carrega o agente, então a prova fica para F3.9, com aviso escrito lá (e `PYTHONPATH=.` no README, F7.4, se precisar). (3a) mantido: F1.3, M8 e a regra 10 decidiram defaults não sensíveis no `.env.example`; a leitura literal do enunciado ("nomes, sem valores") fica registrada aqui, e tirar os defaults é só apagar três valores. (3b) aplicado: `or default` nas cinco leituras do `env.py`; F2.1 reescrito para `env.DATABASE_URL or …`. (4) aplicado. (5) não aplicado: F0.2 manda essa forma, igual à referência, e os roteiros são `curl`/shell POSIX |
+  | harness-testes | PASSOU | 117 passed / 0 failed / 3 skipped (os 3 são `gemini`, só com `HARNESS_GEMINI=1`); novos `tests/unit/test_env.py` (13) e `tests/unit/test_esqueleto.py` (37); o teste do `env.py` reescrito no estilo antigo falha, então pega a regressão do valor em branco | mantidos |
+  | harness-conformidade | ATENÇÃO | 20 atende / 0 parcial / 0 falta (3 pendentes por desenho: commit, este Registro, resto do passo 1); só ressalva documental: F2.1 lia `os.environ.get("DATABASE_URL", default)`, que reintroduziria o bug do valor em branco | F2.1 corrigido (acima) |
+  | harness-live | ATENÇÃO | 7 passos ok / 0 falhos / 0 repetições por 5xx, sessão `aa4109c7…`: `/docs` 200 sem traceback; `POST /sessoes` 201 e `apartamento` vazio 422; reservas do 101 `[]`; sessão inexistente 404; mensagem real → 1 pendência `reservar_area` (`salao-de-festas`, `2030-04-20`, taxa 150.0) e reservas `[]`; negar → 200, nada reservado, mesmo id → 409. Passo 7: os `model_version` dos eventos são `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite` (especialista), não os defaults do `env.py` | o `.env` local do Marcos sobrescreve `MODELO_*` (editado em 2026-10-28 às 22:16, antes da sessão), então o código funciona como projetado; o `.env` não foi tocado |
+
+  Linhas dos agentes: "harness-simplificar · fase-1 · PASSOU · 0 mudanças" ·
+  "harness-revisar · fase-1 · ATENÇÃO · 0 alta / 1 média / 4 baixa" ·
+  "harness-testes · fase-1 · PASSOU · 117 passed / 0 failed / 3 skipped" ·
+  "harness-conformidade · fase-1 · ATENÇÃO · 20 atende / 0 parcial / 0 falta" ·
+  "harness-live · fase-1 · ATENÇÃO · 7 passos ok / 0 falhos".
+
+  Evidência-chave do live: autores dos eventos da sessão = `user`,
+  `assistente`, `assistente`, `especialista_reservas` ×4, `user`,
+  `especialista_reservas` ×2; depois do `function_response` de
+  `adk_request_confirmation` (`confirmed: false`) o `function_response` de
+  `reservar_area` é `nao_confirmada`.
+
+  Observação do teste com `adk web` (fora do harness): `POST
+  /apps/residencial_aurora/users/101/sessions/<id>` com `{"state":
+  {"apartamento": "101"}}` devolveu o estado aninhado
+  (`"state": {"state": {"apartamento": "101"}}`). Vale para a linha opcional de
+  F3.9: conferir o formato certo do corpo antes de documentá-la.
+
+  **Para o Marcos decidir (D5/#8):** o `.env` local usa
+  `gemini-3.1-flash-lite` e `gemini-3.5-flash-lite`; `env.py` e `.env.example`
+  seguem com `gemini-3.5-flash-lite` e `gemini-3.8-flash`. Quem clonar o
+  repositório e copiar o `.env.example` roda com o 3.8, que deu 503 "high
+  demand" nas rodadas da Fase 0. Se os modelos do `.env` são os que ele quer
+  entregar, é trocar os defaults de `env.py` e `.env.example`; até lá o plano
+  segue com os da D5.
+
+  Conclusão: Fase 1 fechada; nenhum achado muda o desenho.

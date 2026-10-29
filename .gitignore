@@ -1,9 +1,13 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc
 .adk/
 *.db
+*.db-wal
+*.db-shm
 .pytest_cache/
 .history/
 .DS_Store
