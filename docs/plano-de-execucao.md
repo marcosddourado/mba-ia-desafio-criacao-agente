@@ -55,9 +55,9 @@ parênteses.
    passo 15.)
 8. **ADK fixado em `google-adk===2.2.0`** no `pyproject.toml`, com `uv lock`.
    Subir de versão é plano B e exige aval do Marcos. (D1.)
-9. **Layout da seção 1 das decisões:** `web.py`, `env.py`, `api.http`, `db/`,
+9. **Layout da seção 1 das decisões:** `web.py`, `env.py`, `db/`,
    `agents/residencial_aurora/{agent.py,subagents/,tools/}`, `docs/`. Tudo em
-   português. (Seção 1.)
+   português. Sem `api.http` (Registro #9). (Seção 1.)
 10. **Nenhuma chave versionada.** `.env` no `.gitignore`; `.env.example` só
     com nomes e defaults não sensíveis. (Enunciado.)
 11. **O resultado da Fase 0 decide as alavancas.** Nenhuma alavanca da seção 6
@@ -77,7 +77,6 @@ parênteses.
 .
 ├── web.py                               # FastAPI + App + Runner + SqliteSessionService (Fase 5)
 ├── env.py                               # load_dotenv + constantes (Fase 0/1)
-├── api.http                             # roteiro da Fase 0 hoje; os 14 passos do avaliador na Fase 6
 ├── pyproject.toml  uv.lock  .python-version
 ├── .env.example  .gitignore  .vscode/settings.json
 ├── agents/
@@ -108,7 +107,6 @@ parênteses.
 ├── docs/
 │   ├── decisoes-tecnicas.md
 │   ├── plano-de-execucao.md             # este arquivo
-│   ├── como-testar.md                   # guia de testes manuais, cresce a cada fase
 │   └── enunciado.md                     # README original, movido na Fase 7
 ├── tests/                               # harness: unit/ e e2e/ (pytest, grupo dev)
 ├── .claude/
@@ -374,8 +372,8 @@ sensível versionado, mesmas conveniências da referência.
 - [ ] **F1.2 `.python-version`** com `3.12` (igual à referência).
 - [x] **F1.3 `.env.example`** comentado por seção como o da referência, sem
   nenhum valor sensível (M8): — ✅ 2026-10-25 — evidência: `.env.example`
-  criado antes da Fase 1 para o Marcos testar a Fase 0 (`docs/como-testar.md`);
-  conteúdo igual ao bloco abaixo.
+  criado antes da Fase 1 para o Marcos testar a Fase 0 (`docs/como-testar.md`,
+  removido depois, Registro #9); conteúdo igual ao bloco abaixo.
 
   ```dotenv
   # Copie para `.env` na raiz do repositório: cp .env.example .env
@@ -847,17 +845,17 @@ pedido e a aprovação; commit `feat: fase 5 — API no contrato do enunciado`;
 
 ---
 
-## Fase 6 — `api.http` e passagem manual pelos 14 passos
+## Fase 6 — Passagem manual pelos 14 passos
 
-**Objetivo.** Deixar as requisições prontas no estilo de `api_tickets.http` e
-executar o fluxo do avaliador inteiro, de um clone limpo de dados, colando
-evidências.
+**Objetivo.** Executar o fluxo do avaliador inteiro com `curl`, de um clone
+limpo de dados, colando evidências. Sem `api.http` (Registro #9).
 
-**Arquivos.** `api.http`.
+**Arquivos.** Nenhum de código; as evidências vão para o Registro.
 
 ### Tarefas
 
-- [ ] **F6.1 `api.http`.** `@baseUrl = http://localhost:8000`; um bloco por
+- [x] **F6.1 `api.http`.** — ⚠️ 2026-10-28 — fora do escopo, ver Registro #9.
+  Texto original: `@baseUrl = http://localhost:8000`; um bloco por
   passo (1 a 14) com título e o que conferir em comentário; variáveis de
   resposta (`# @name s1` → `{{s1.response.body.$.session_id}}`,
   `{{p7.response.body.$.confirmacoes_pendentes[0].id}}`); S1, S2, S3 e S4
@@ -905,7 +903,7 @@ evidências.
   `description` que tenha sido necessário para o roteamento acertar.
 
 **Pronto quando.** Os 14 passos conferidos e registrados; F6.6 passou 3
-vezes; `api.http` versionado; commit `feat: fase 6 — api.http e passagem pelo fluxo do avaliador`; `/harness fase-6` com relatório no Registro.
+vezes; commit `docs: fase 6 — passagem pelo fluxo do avaliador`; `/harness fase-6` com relatório no Registro.
 
 ---
 
@@ -947,7 +945,7 @@ seções exigidas, apontando arquivos e trechos que existem.
     `IntegrityError`, resultado do passo 14.
 - [ ] **F7.4 Seção Como rodar.** Pré-requisitos (Python 3.12, uv), `cp .env.example .env`
   e as variáveis, `uv sync`, `uv run python -m db.restaurar`,
-  `uv run uvicorn web:app --port 8000`, `api.http`, opcional
+  `uv run uvicorn web:app --port 8000`, opcional
   `uv run adk web agents --port 8001`, opcional Postgres via `DATABASE_URL`
   (sem docker-compose neste repositório). Dizer que a restauração apaga as
   sessões e que o índice do regulamento é cache reconstruível.
@@ -1199,3 +1197,16 @@ texto do plano.
   pelo cliente (o `harness-live` e o `api.http` repetem 5xx até 3 vezes). A
   troca para `gemini-3.6-flash` continua disponível só pelo `.env`, sem mudar
   código, se o avaliador relatar instabilidade.
+- **#9 · 2026-10-28 · decisão · layout / Fase 6.** Removidos `api.http` e
+  `docs/como-testar.md`, criados em d717776 só para os testes manuais da
+  Fase 0. O enunciado não pede nenhum dos dois: a entrega é a API, os agentes,
+  as cinco garantias, os comandos de subida e de restauração e o README
+  (seções "Objetivo" e "Entregável"). A Fase 6 passa a rodar os 14 passos só
+  com `curl` (F6.2 a F6.6 já estavam escritas assim): F6.1 sai do escopo e
+  F7.4 não cita mais `api.http`. Correção de #8: o `api.http` nunca repetiu
+  5xx (o REST Client não tem retry); quem repetia era a pessoa clicando de
+  novo. Também não pedidos pelo enunciado, mas mantidos por enquanto:
+  `tests/` e o grupo `dev` do `pyproject.toml` (testes automatizados estão em
+  "Fora de escopo"), `.claude/` (harness e `launch.json`) e o plano e as
+  decisões em `docs/`. O harness da regra 12 usa `tests/` e `.claude/` em
+  toda fase.

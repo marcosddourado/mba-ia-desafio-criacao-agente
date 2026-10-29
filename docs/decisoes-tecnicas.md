@@ -52,7 +52,7 @@ que este desafio precisa. A tabela diz de onde copiar o estilo.
 
 | Aspecto | Onde está na referência | Como aplicar aqui |
 |---|---|---|
-| Layout de projeto | raiz: `web.py`, `db/`, `agents/`, `docs/`, `api.http`, `.env.example`, `docker-compose.yml`, `.vscode/settings.json` | Mesma raiz. `agents/residencial_aurora/` com `agent.py` (`root_agent` + `app`), `subagents/`, `tools/`. `db/` com `engine.py`, `models.py`, `repo.py`, `restaurar.py`. |
+| Layout de projeto | raiz: `web.py`, `db/`, `agents/`, `docs/`, `api.http`, `.env.example`, `docker-compose.yml`, `.vscode/settings.json` | Mesma raiz, sem `api.http` (Registro #9 do plano). `agents/residencial_aurora/` com `agent.py` (`root_agent` + `app`), `subagents/`, `tools/`. `db/` com `engine.py`, `models.py`, `repo.py`, `restaurar.py`. |
 | Descoberta pelo `adk web` | `docs/01-adk-run-carregamento-de-agentes.md`: pasta = app, `agent.py` expõe `root_agent` ou `app` | `uv run adk web agents` continua funcionando para depurar transferências e confirmações. |
 | Montagem do runtime | `web.py` (raiz): `App(root_agent=..., name=..., plugins=[...])`, `Runner(app=..., session_service=...)`, `SqliteSessionService(f"{CURRENT_PATH}/.adk/....db")` com `os.makedirs` | Idêntico. Um `App`, um `Runner`, um `session_service` global no módulo. |
 | Leitura do stream de eventos | `web.py`: `_texto(event)`, `event.is_final_response()`, `event.get_function_responses()` | Mesmos helpers. A resposta do morador = texto do evento final; dado de máquina sai do `function_response`, nunca de parse do texto. |
@@ -66,7 +66,7 @@ que este desafio precisa. A tabela diz de onde copiar o estilo.
 | Tratamento de erro de tool | `ticket_receptionist/agent.py::_handle_tool_error` via `on_tool_error_callback` | Copiar: `ValueError` vira `{"status": "error", "message": ...}`; o resto vira mensagem genérica. |
 | Retry de resposta vazia | `ticket_receptionist/plugins.py::ModelRetryPlugin` | Copiar o plugin inteiro e registrar no `App`. |
 | Variáveis de ambiente | `.env.example` comentado por seção; `env.py` com `load_dotenv()` | Mesmo formato. Lista em M8. |
-| Requisições prontas | `api_tickets.http` com variáveis de resposta (`{{sessao.response.body.$.session_id}}`) | `api.http` com os 14 passos do fluxo do avaliador. |
+| Requisições prontas | `api_tickets.http` com variáveis de resposta (`{{sessao.response.body.$.session_id}}`) | Não entra: o enunciado não pede (Registro #9 do plano). A Fase 6 roda os 14 passos com `curl`. |
 | Modelos por papel | `root_agent` em `gemini-3.1-flash-lite`, especialistas em `gemini-3.5-flash` | Mesma ideia de "principal leve, especialista forte" (D5). |
 
 ---
