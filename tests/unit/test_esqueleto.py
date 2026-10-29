@@ -48,7 +48,10 @@ def test_uv_lock_resolve_google_adk_2_2_0():
 
 def test_pyproject_declara_as_dependencias_da_fase_1_e_o_readme():
     pyproject = tomllib.loads((RAIZ / "pyproject.toml").read_text(encoding="utf-8"))
-    nomes = {re.split(r"[=<>~! ]", d, maxsplit=1)[0] for d in pyproject["project"]["dependencies"]}
+    dependencias = pyproject["project"]["dependencies"]
+    nomes = {re.split(r"[\[<>=~! ]", d, maxsplit=1)[0] for d in dependencias}
+
+    assert any(d.startswith("sqlalchemy[asyncio]") for d in dependencias)
 
     assert {"google-adk", "fastapi", "uvicorn", "sqlalchemy", "aiosqlite", "asyncpg", "python-dotenv", "numpy"} <= nomes
     assert pyproject["project"]["readme"] == "README.md"

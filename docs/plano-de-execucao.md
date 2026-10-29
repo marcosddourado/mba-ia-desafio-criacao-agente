@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28, com harness no Registro #10. Próxima: Fase 2.
+> em 2026-10-28 (Registro #10) e Fase 2 em 2026-10-29 (Registro #12). Próxima: Fase 3.
 
 ---
 
@@ -464,7 +464,7 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
 
 ### Tarefas
 
-- [ ] **F2.1 `db/engine.py`.** `DATABASE_URL = env.DATABASE_URL or "sqlite+aiosqlite:///<raiz>/.adk/condominio.db"`
+- [x] **F2.1 `db/engine.py`.** `DATABASE_URL = env.DATABASE_URL or "sqlite+aiosqlite:///<raiz>/.adk/condominio.db"`
   (o `env.py` já trata `DATABASE_URL=` em branco como `None`, Registro #10; não ler `os.environ` direto);
   `os.makedirs(<raiz>/.adk, exist_ok=True)`;
   `engine = create_async_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"timeout": 30} se sqlite)`;
@@ -472,7 +472,8 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
   `PRAGMA journal_mode=WAL` e `PRAGMA busy_timeout=5000` quando a URL é
   SQLite (evita "database is locked" na disputa do passo 14);
   `async_session`, `init_db()`, `close_db()` iguais à referência.
-- [ ] **F2.2 `db/models.py`.**
+  — ✅ 2026-10-29 — evidência: `db/engine.py` (URL via `env.DATABASE_URL or` SQLite em `.adk/condominio.db`; `timeout` 30 e PRAGMAs WAL + `busy_timeout=5000` só em SQLite); `PRAGMA journal_mode` = `wal`.
+- [x] **F2.2 `db/models.py`.**
   - `ReservaModel` (`reservas`): `codigo` PK `String(16)` com default
     `_novo_codigo()` = `f"RSV-{uuid4().hex[:8].upper()}"` (M4);
     `apartamento String(8)` indexado; `area String(32)`; `data String(10)`
@@ -486,13 +487,15 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
     `UniqueConstraint("apartamento", "nome", "data")`.
   - `SessaoModel` (`sessoes`): `session_id` PK `String(64)`, `apartamento`,
     `criado_em`.
-- [ ] **F2.3 `db/dados.py`.** Carrega uma vez `dados/apartamentos.json` e
+  — ✅ 2026-10-29 — evidência: `db/models.py`; `.schema reservas` mostra `CREATE UNIQUE INDEX ux_reservas_area_data_ativa ON reservas (area, data) WHERE status = 'ativa'`.
+- [x] **F2.3 `db/dados.py`.** Carrega uma vez `dados/apartamentos.json` e
   `dados/areas.json` (imutáveis): `APARTAMENTOS: dict[str, str]`
   (`numero → morador`), `AREAS: dict[str, Area]` (`id → {nome, taxa}`),
   `apartamento_existe(numero) -> bool`, `area_por_id(area) -> Area | None`,
   `DATA_RE = r"^\d{4}-\d{2}-\d{2}$"` e `validar_data(data)` que levanta
   `ValueError` (M7).
-- [ ] **F2.4 `db/repo.py`.** Todas `async`, uma transação por função:
+  — ✅ 2026-10-29 — evidência: `db/dados.py` (6 apartamentos, 3 áreas; `validar_data` também rejeita dia que não existe, ex. 2030-02-30; `ler_json` público, usado por `restaurar.py`).
+- [x] **F2.4 `db/repo.py`.** Todas `async`, uma transação por função:
   `listar_reservas_ativas(apartamento) -> list[ReservaModel]` (ordem por
   `data`); `reserva_ativa_existe(area, data) -> bool`;
   `criar_reserva(apartamento, area, data) -> ReservaModel` (**deixa
@@ -504,14 +507,16 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
   `autorizar_visitante(apartamento, nome, data) -> VisitanteModel` (deixa
   `IntegrityError` subir); `criar_sessao(session_id, apartamento)`;
   `obter_sessao(session_id) -> SessaoModel | None`.
-- [ ] **F2.5 `db/restaurar.py`.** No molde de `db/reset.py`: `drop_all`,
+  — ✅ 2026-10-29 — evidência: `db/repo.py`; 8 e 10 gravações concorrentes dão 1 `ok` e o resto `IntegrityError`; `cancelar_reserva` com dono errado, já cancelada ou código inexistente → `None`.
+- [x] **F2.5 `db/restaurar.py`.** No molde de `db/reset.py`: `drop_all`,
   `create_all`, inserir `dados/reservas.json` com `status="ativa"` e
   `dados/visitantes.json`, apagar `.adk/sessoes.db` **e** os arquivos
   `sessoes.db-wal` / `sessoes.db-shm` se existirem (M3), imprimir um resumo
   (`3 reservas, 2 visitantes, sessões apagadas`). Não toca em
   `.adk/regulamento.index.json`. Não chama a API do Gemini. Entrada:
   `uv run python -m db.restaurar`.
-- [ ] **F2.6 Verificação da exclusividade.** Rodar um script temporário (fora
+  — ✅ 2026-10-29 — evidência: `uv run python -m db.restaurar` → `3 reservas, 2 visitantes, sessões apagadas`; apaga `sessoes.db`, `-wal`, `-shm` e preserva `regulamento.index.json`; roda com `GOOGLE_API_KEY=` e `DATABASE_URL=` em branco.
+- [x] **F2.6 Verificação da exclusividade.** Rodar um script temporário (fora
   do Git) com duas gravações simultâneas na mesma área e data:
 
   ```python
@@ -537,6 +542,7 @@ da referência. Mesmo estilo: `DeclarativeBase`, `Mapped`, `mapped_column`,
 
   Esperado: uma linha `reservada`, uma `indisponivel`, sem exceção solta.
   Repetir 3 vezes (rodando `uv run python -m db.restaurar` entre elas).
+  — ✅ 2026-10-29 — evidência: 3 rodadas com `db.restaurar` entre elas → `['101: reservada RSV-…', '201: indisponivel']` todas; disputa de 10 gravações ×3 → 1 reservada, 9 indisponivel, 0 "database is locked".
 
 **Pronto quando.** `uv run python -m db.restaurar` imprime o resumo;
 `sqlite3 .adk/condominio.db "select codigo, apartamento, area, data, status from reservas"`
@@ -544,6 +550,7 @@ lista `RSV-1377`, `RSV-4821`, `RSV-2950` ativas;
 `sqlite3 .adk/condominio.db ".schema reservas"` mostra o índice com
 `WHERE status = 'ativa'`; `ls .adk/sessoes.db` falha depois da restauração;
 F2.6 passou 3 vezes; commit `feat: fase 2 — banco do condomínio`; `/harness fase-2` com relatório no Registro.
+— ✅ 2026-10-29: `db.restaurar` imprime o resumo; `select` lista `RSV-1377`, `RSV-4821`, `RSV-2950` ativas; `.schema reservas` com `WHERE status = 'ativa'`; `ls .adk/sessoes.db` falha; F2.6 passou 3 vezes; `uv run pytest -q` → `144 passed, 3 skipped`; harness no Registro #12. **Commit não feito**: o Marcos pediu para deixar as mudanças sem staging para revisar.
 
 ---
 
@@ -1314,3 +1321,32 @@ texto do plano.
   `ModelRetryPlugin` cobre resposta vazia, não 503, que segue em F5.11. A linha
   de risco da Fase 6 que manda trocar `MODELO_ESPECIALISTAS` para
   `gemini-3.6-flash` passa a significar "subir para um modelo mais forte".
+- **#12 · 2026-10-29 · harness · Fase 2.** Rodada do harness sobre `db/` (cinco
+  arquivos novos), depois de F2.1–F2.6 e do "Pronto quando" verificados à mão.
+
+  **Desvio de dependência (achado ao rodar F2.6):** `sqlalchemy>=2.0` não traz o
+  `greenlet`, e `sqlalchemy.ext.asyncio` exige. Num `uv sync` limpo o `db.engine`
+  nem importaria (risco "uv sync" da Fase 1, que o teste de import não pegou
+  porque não importava `sqlalchemy.ext.asyncio`). `pyproject.toml` passou a
+  `"sqlalchemy[asyncio]>=2.0"`; `uv.lock` ganhou `greenlet 3.5.6` (63 pacotes).
+
+  | Agente | Veredito | Achados | Ação |
+  |---|---|---|---|
+  | harness-simplificar | ATENÇÃO | 1 refatoração: `_ler` virou `ler_json` em `db/dados.py` e `restaurar.py` deixou de ter a cópia (e o import de `json`); `Base` importada de `db.models`. ATENÇÃO porque o teste de pyproject da Fase 1 quebrou pelo extra `[asyncio]` | aplicado; teste ajustado no harness-testes |
+  | harness-revisar | PASSOU | 0 alta / 0 média / 2 baixa: (1) `cancelado_em` volta sem fuso no SQLite (naive); (2) `DATABASE_URL` Postgres sem `+asyncpg` falha em `create_async_engine` (o `.env.example` já mostra o formato certo) | não aplicados: nenhuma garantia depende deles; a Fase 5 serializa `cancelado_em` só se expuser o campo |
+  | harness-testes | PASSOU | 144 passed / 0 failed / 3 skipped; `tests/unit/test_db.py` (27 testes, banco SQLite em `tmp_path`, 3 rodadas sem flakiness) e teste de dependências da Fase 1 normalizando o extra | mantidos |
+  | harness-conformidade | PASSOU | 18 atende / 0 parcial / 0 falta; reproduziu `db.restaurar`, schema, `ls` e as 3 rodadas de F2.6 | — |
+  | harness-live | PASSOU | 6 passos ok / 0 falhos, sem Gemini: restauração apaga `sessoes.db`/`-wal`/`-shm` e preserva `regulamento.index.json`; estado inicial correto, banco em `wal`; F2.6 ×3 → 1 reservada + 1 indisponivel; 10 gravações simultâneas ×3 → 1 reservada, 9 indisponivel, 0 "database is locked", e depois de cancelar a vencedora outra grava; roda com `GOOGLE_API_KEY=` e `DATABASE_URL=` em branco | — |
+
+  Linhas dos agentes: "harness-simplificar · fase-2 · ATENÇÃO · 1 mudança" ·
+  "harness-revisar · fase-2 · PASSOU · 0 alta / 0 média / 2 baixa" ·
+  "harness-testes · fase-2 · PASSOU · 144 passed / 0 failed / 3 skipped" ·
+  "harness-conformidade · fase-2 · PASSOU · 18 atende / 0 parcial / 0 falta" ·
+  "harness-live · fase-2 · PASSOU · 6 passos ok / 0 falhos".
+
+  Notas: `validar_data` rejeita também datas inexistentes (2030-02-30), além do
+  formato (M7). O teste de concorrência cobre só SQLite; Postgres não foi
+  exercitado (D4 prevê a troca por `DATABASE_URL`). Importar `db.engine` cria
+  `.adk/` (por F2.1). Commit não feito a pedido do Marcos: alterações deixadas
+  sem staging para ele revisar. Conclusão: Fase 2 fechada; nenhum achado muda o
+  desenho.
