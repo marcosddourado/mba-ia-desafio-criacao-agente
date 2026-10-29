@@ -37,7 +37,7 @@
 | D2 | Topologia dos agentes | ✅ | **B** — principal roteia; `reservas` e `visitantes` em `chat` com as tools de confirmação; `regulamento` em `single_turn` |
 | D3 | Serviço de sessão | ✅ | **SqliteSessionService** (o mesmo do `adk web`), arquivo em `.adk/` |
 | D4 | Armazenamento do condomínio | ✅ | **SQLite + SQLAlchemy async** com índice único parcial; Postgres opcional por env |
-| D5 | Modelos por agente | ✅ | **`gemini-3.8-flash`** nos especialistas e **`gemini-3.5-flash-lite`** no principal, via `.env` |
+| D5 | Modelos por agente | ✅ | **`gemini-3.5-flash-lite`** nos especialistas e **`gemini-3.1-flash-lite`** no principal, via `.env` (trocado em 2026-10-28; a decisão original era 3.8 e 3.5, ver D5) |
 | D6 | Consulta ao regulamento | ✅ | **RAG com embeddings** (`gemini-embedding-001`, 1 artigo por chunk, índice em processo com numpy, resultado filtrado ao capítulo vencedor). Recomendação original era a tool por capítulo; ver D6 |
 | D7 | Identidade da sessão | ✅ | **`user_id` = apartamento** + tabela própria `sessoes` para resolver `session_id` |
 | D8 | Pendências e o 409 | ✅ | **Derivadas dos eventos** da sessão (pedido `adk_request_confirmation` sem resposta) |
@@ -253,6 +253,17 @@ Limites são por modelo, então usar dois modelos divide a cota.
 **Decisão: B** (recomendada e aceita), configurável no `.env`: `MODELO_PRINCIPAL=gemini-3.5-flash-lite`
 e `MODELO_ESPECIALISTAS=gemini-3.8-flash`. Se o AI Studio do Marcos mostrar cota
 apertada para o 3.8, trocar o especialista para `gemini-3.6-flash` sem mexer no código.
+
+**Atualização 2026-10-28 (Marcos).** Os padrões de `env.py` e `.env.example`
+passaram a `MODELO_PRINCIPAL=gemini-3.1-flash-lite` e
+`MODELO_ESPECIALISTAS=gemini-3.5-flash-lite`, os que o Marcos já usava no `.env`
+local. Na prática é a opção C com dois modelos "lite" (principal mais leve que o
+especialista). Contexto: o `gemini-3.8-flash` deu 503 "high demand" em 6 de 9
+primeiras chamadas na Fase 0 (plano, Registro #7). Riscos que ficam, os da
+opção C: tool calling e datas com modelo leve → mais retries (o
+`ModelRetryPlugin` cobre resposta vazia, não 503) e roteamento do principal em
+pedido misto. Voltar ao 3.8 continua sendo só editar os dois valores no `.env`
+(ou nos defaults). O texto acima fica como histórico da decisão original.
 
 ### D6 — Consulta ao regulamento (Garantia 4) ✅
 

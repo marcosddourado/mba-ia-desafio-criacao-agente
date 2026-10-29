@@ -19,8 +19,9 @@
 > no ADK 2.2.0 com `SqliteSessionService` e reinício da API, **sem nenhuma
 > alavanca** (Registro #4). Harness de verificação criado em `.claude/agents/`
 > e obrigatório no fim de toda fase (seção "Harness de verificação"); a Fase 0
-> passou por ele em 2026-10-24 (Registro #7). Modelo dos especialistas mantido
-> em `gemini-3.8-flash` por decisão do Marcos (Registro #8). Fase 1 concluída
+> passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
+> 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
+> (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
 > em 2026-10-28, com harness no Registro #10. Próxima: Fase 2.
 
 ---
@@ -381,7 +382,8 @@ sensível versionado, mesmas conveniências da referência.
 - [x] **F1.3 `.env.example`** comentado por seção como o da referência, sem
   nenhum valor sensível (M8): — ✅ 2026-10-25 — evidência: `.env.example`
   criado antes da Fase 1 para o Marcos testar a Fase 0 (`docs/como-testar.md`,
-  removido depois, Registro #9); conteúdo igual ao bloco abaixo.
+  removido depois, Registro #9); conteúdo igual ao bloco abaixo (defaults de
+  `MODELO_*` trocados em 2026-10-28, Registro #11).
 
   ```dotenv
   # Copie para `.env` na raiz do repositório: cp .env.example .env
@@ -391,8 +393,8 @@ sensível versionado, mesmas conveniências da referência.
   GOOGLE_API_KEY=
 
   # ---- Modelos (docs/decisoes-tecnicas.md, D5) ----------------------------- #
-  MODELO_PRINCIPAL=gemini-3.5-flash-lite
-  MODELO_ESPECIALISTAS=gemini-3.8-flash
+  MODELO_PRINCIPAL=gemini-3.1-flash-lite
+  MODELO_ESPECIALISTAS=gemini-3.5-flash-lite
   MODELO_EMBEDDINGS=gemini-embedding-001
 
   # ---- Opcional ------------------------------------------------------------ #
@@ -1291,3 +1293,24 @@ texto do plano.
   segue com os da D5.
 
   Conclusão: Fase 1 fechada; nenhum achado muda o desenho.
+- **#11 · 2026-10-28 · decisão · D5 / Fase 1.** Resposta do Marcos ao ponto
+  deixado no #10: **usar os modelos do `.env` dele** como padrão do projeto.
+  `env.py` e `.env.example` passam a `MODELO_PRINCIPAL=gemini-3.1-flash-lite` e
+  `MODELO_ESPECIALISTAS=gemini-3.5-flash-lite` (antes `gemini-3.5-flash-lite` e
+  `gemini-3.8-flash`); `MODELO_EMBEDDINGS` não muda. Atualizados também o teste
+  `tests/unit/test_env.py` (constante `DEFAULTS`), a linha D5 e uma nota de
+  atualização em `docs/decisoes-tecnicas.md` (o texto original da D5 fica como
+  histórico) e o bloco de F1.3. Isto substitui o #8 ("manter
+  `gemini-3.8-flash`"): quem clona e copia o `.env.example` agora roda com os
+  mesmos modelos que o Marcos usa, e a Fase 5/6 não depende mais do 3.8.
+  Pontos de atenção para as fases seguintes, todos da opção C da D5 (modelo
+  leve): (a) o live da Fase 1 já exercitou esses dois modelos (pedido,
+  pendência e negação ok, 0 repetições por 5xx), mas a retomada com reinício
+  da API (F0.5 item 3) foi provada na Fase 0 com o 3.8 no especialista;
+  o mecanismo não depende do modelo, ainda assim as Fases 5 e 6 repetem o
+  roteiro inteiro, inclusive o passo 11 e o reinício, com os modelos novos;
+  (b) o principal "lite" pode errar roteamento no passo 3 (reservas **e**
+  visitantes), tratado em F3 pela `description` dos especialistas; (c) o
+  `ModelRetryPlugin` cobre resposta vazia, não 503, que segue em F5.11. A linha
+  de risco da Fase 6 que manda trocar `MODELO_ESPECIALISTAS` para
+  `gemini-3.6-flash` passa a significar "subir para um modelo mais forte".

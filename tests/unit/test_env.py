@@ -22,8 +22,8 @@ RAIZ = Path(__file__).resolve().parents[2]
 NOMES = ("MODELO_PRINCIPAL", "MODELO_ESPECIALISTAS", "MODELO_EMBEDDINGS", "SESSION_DB_PATH", "DATABASE_URL")
 
 DEFAULTS = {
-    "MODELO_PRINCIPAL": "gemini-3.5-flash-lite",
-    "MODELO_ESPECIALISTAS": "gemini-3.8-flash",
+    "MODELO_PRINCIPAL": "gemini-3.1-flash-lite",
+    "MODELO_ESPECIALISTAS": "gemini-3.5-flash-lite",
     "MODELO_EMBEDDINGS": "gemini-embedding-001",
 }
 
