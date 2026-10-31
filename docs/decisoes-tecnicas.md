@@ -315,6 +315,16 @@ dependências", contestáveis):
   recebe o regulamento na instrução.
 - **Dependência nova:** `numpy` no `pyproject.toml`. **Custo:** 1 chamada de
   embedding por pergunta no fluxo do avaliador, mais a construção única do índice.
+- **Atualização 2026-10-31 (Marcos pediu melhorar a recuperação).** Medido com 28
+  perguntas do regulamento e 8 fora de assunto: `gemini-embedding-001` acerta
+  capítulo e artigo em 28/28, mas a folga entre o pior acerto e o melhor fora de
+  assunto é de +0.055 (a pergunta do cachorro na piscina marcava 0.699);
+  `gemini-embedding-2` também acerta 28/28 com folga +0.095 (cachorro 0.727).
+  O padrão passa a `MODELO_EMBEDDINGS=gemini-embedding-2` e `LIMIAR = 0.66`.
+  Sobreposição com o fim do artigo anterior, só dentro do capítulo, foi
+  implementada (`SOBREPOSICAO`, caracteres) mas fica em 0: não melhorou o
+  ranking de forma consistente (+0.009 de folga no 001, −0.014 no 2; incluir o
+  artigo seguinte piorou). Registro #15 do plano.
 - **Prova no README:** apontar o chunker por artigo, o filtro por capítulo e o
   evento da tool no passo 12 (só Capítulo IV).
 

@@ -57,7 +57,22 @@ def test_sem_task_na_raiz():
 
 def test_instrucao_do_principal_sem_regulamento():
     assert "Art." not in root_agent.instruction and "Capítulo" not in root_agent.instruction
-    assert not root_agent.tools
+    # Só o especialista de regulamento (como tool single_turn); nenhuma FunctionTool de regulamento.
+    assert len(root_agent.tools) == 1
+    assert type(root_agent.tools[0]).__name__ == "_SingleTurnAgentTool"
+    assert not any(callable(t) and getattr(t, "__name__", "") == "consultar_regulamento" for t in root_agent.tools)
+
+
+def test_tres_especialistas_com_os_modos_certos():
+    assert set(SUBS) == {"especialista_reservas", "especialista_visitantes", "especialista_regulamento"}
+    assert SUBS["especialista_regulamento"].mode == "single_turn"
+    for n in ("especialista_reservas", "especialista_visitantes"):
+        a = SUBS[n]
+        assert a.mode == "chat", n
+        assert not a.disallow_transfer_to_parent, n
+        assert a.disallow_transfer_to_peers, n
+        assert a.on_tool_error_callback is tratar_erro_tool, n
+    assert not any(getattr(a, "mode", None) == "task" for a in root_agent.sub_agents)
 
 
 def test_app_com_model_retry_plugin_e_sem_resumability():

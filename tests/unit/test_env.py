@@ -24,7 +24,7 @@ NOMES = ("MODELO_PRINCIPAL", "MODELO_ESPECIALISTAS", "MODELO_EMBEDDINGS", "SESSI
 DEFAULTS = {
     "MODELO_PRINCIPAL": "gemini-3.1-flash-lite",
     "MODELO_ESPECIALISTAS": "gemini-3.5-flash-lite",
-    "MODELO_EMBEDDINGS": "gemini-embedding-001",
+    "MODELO_EMBEDDINGS": "gemini-embedding-2",
 }
 
 _CODIGO = """

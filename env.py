@@ -14,7 +14,7 @@ RAIZ = __file__.rsplit("/", 1)[0]
 # Modelos por papel (docs/decisoes-tecnicas.md, D5): principal leve, especialistas fortes.
 MODELO_PRINCIPAL = os.environ.get("MODELO_PRINCIPAL") or "gemini-3.1-flash-lite"
 MODELO_ESPECIALISTAS = os.environ.get("MODELO_ESPECIALISTAS") or "gemini-3.5-flash-lite"
-MODELO_EMBEDDINGS = os.environ.get("MODELO_EMBEDDINGS") or "gemini-embedding-001"
+MODELO_EMBEDDINGS = os.environ.get("MODELO_EMBEDDINGS") or "gemini-embedding-2"
 
 # Onde o SqliteSessionService guarda as sessões (D3). Pasta `.adk/` fica fora do Git.
 SESSION_DB_PATH = os.environ.get("SESSION_DB_PATH") or f"{RAIZ}/.adk/sessoes.db"

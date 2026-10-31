@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) e Fase 3 em 2026-10-29 (Registro #13). Próxima: Fase 4.
+> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) e Fase 4 em 2026-10-31 (Registro #14). Próxima: Fase 5.
 
 ---
 
@@ -701,7 +701,7 @@ o regulamento.
 
 ### Tarefas
 
-- [ ] **F4.1 Chunker.** `carregar_artigos(caminho=dados/regulamento.md) -> list[Artigo]`
+- [x] **F4.1 Chunker.** `carregar_artigos(caminho=dados/regulamento.md) -> list[Artigo]`
   com `Artigo(capitulo_numero: str, capitulo_titulo: str, artigo: str, texto: str)`.
   Capítulos pelo regex `^## Capítulo ([IVXL]+): (.+)$`; artigos por
   `^\*\*Art\. (\d+)\.\*\*`; o texto de um artigo vai até o próximo artigo
@@ -709,29 +709,35 @@ o regulamento.
   capítulo). `texto` é o artigo inteiro como está no arquivo, com o prefixo
   `**Art. N.**` e seus incisos e parágrafos, sem cortes. Conferir: `len(artigos) == 96`, 14 capítulos distintos, nenhum
   `texto` contém `## Capítulo`.
-- [ ] **F4.2 Embeddings.** `google.genai.Client()` (lê `GOOGLE_API_KEY`),
+  — ✅ 2026-10-31 — evidência: `carregar_artigos` em `tools/regulamento.py`: 96 artigos distintos, 14 capítulos, nenhum `texto` com `## Capítulo`. Desvio: o regex do plano (`\.\*\*`) perdia os 9 artigos `**Art. 9º**`; o chunker aceita `º` ou `.` (Registro #14).
+- [x] **F4.2 Embeddings.** `google.genai.Client()` (lê `GOOGLE_API_KEY`),
   `await client.aio.models.embed_content(model=MODELO_EMBEDDINGS, contents=lote, config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT", output_dimensionality=768))`
   em lotes de até 32 textos; `task_type="RETRIEVAL_QUERY"` para a pergunta;
   normalização `v / np.linalg.norm(v)` (obrigatória fora de 3072 dims).
-- [ ] **F4.3 Índice persistido.** Classe `IndiceRegulamento` com
+  — ✅ 2026-10-31 — evidência: `_embedar`: `embed_content` em lotes de 32, `RETRIEVAL_DOCUMENT`/`RETRIEVAL_QUERY`, 768 dims, vetores normalizados; repete 429 (espera 40 s) e 5xx (5 s) até 3 tentativas.
+  — 🔁 2026-10-31 — melhorado depois do harness: modelo padrão `gemini-embedding-2` (sem `task_type`, prefixos `title: … | text: …` e `task: search result | query: …`, 1 texto por chamada, 8 simultâneas), `gemini-embedding-001` segue suportado; ver Registro #15.
+- [x] **F4.3 Índice persistido.** Classe `IndiceRegulamento` com
   `carregar()` (lê `.adk/regulamento.index.json` se o `sha256` do
   `regulamento.md` e o `modelo` baterem; senão constrói e grava), matriz
   `numpy` 96×768, metadados dos artigos, `asyncio.Lock` para não construir
   duas vezes em chamadas concorrentes. Construção **sob demanda na primeira
   consulta**; `db.restaurar` não toca nele.
-- [ ] **F4.4 Busca com filtro por capítulo.** `mais_similares(q, k=5)` por
+  — ✅ 2026-10-31 — evidência: `IndiceRegulamento`: cache `.adk/regulamento.index.json` (1.693.334 bytes) invalidado por sha256, modelo, dimensões e quantidade; escrita atômica; lock por event loop; 5 `carregar` simultâneos → 1 construção. `db.restaurar` não o toca. Live: 1ª consulta criou o arquivo (24 s); 2ª consulta e consulta após reinício deixaram mtime e tamanho iguais (4 s e 11 s).
+- [x] **F4.4 Busca com filtro por capítulo.** `mais_similares(q, k=5)` por
   cosseno (`M @ q`); agrupar por capítulo, vencedor = maior soma de
   similaridade; devolver só os artigos do vencedor que estão no top-k, em
   ordem de artigo. Se o melhor score < `LIMIAR` (constante no módulo,
   inicial `0.5`, calibrada em F4.7) → `{"status": "sem_resultado",
   "capitulos": [títulos]}`.
-- [ ] **F4.5 Tool.** `async def consultar_regulamento(pergunta: str) -> dict`
+  — ✅ 2026-10-31 — evidência: `IndiceRegulamento.mais_similares`: `M @ q`, top-5, capítulo de maior soma, só os artigos dele em ordem; `LIMIAR = 0.63`; `melhor_score` é o do capítulo vencedor.
+- [x] **F4.5 Tool.** `async def consultar_regulamento(pergunta: str) -> dict`
   → `{"status": "ok", "capitulo": "Capítulo IV: Piscina", "artigos": [{"artigo": "Art. 22", "texto": "..."}]}`
   (`texto` igual ao do chunk, sem cortes, para que F4.8 consiga reconhecê-lo).
   Sem parâmetro de apartamento (não precisa de `tool_context`). A
   assinatura `consultar_regulamento(assunto, capitulo=None)` de M2 foi
   substituída por D6; registrar no Registro.
-- [ ] **F4.6 `subagents/especialista_regulamento/agent.py`.**
+  — ✅ 2026-10-31 — evidência: `consultar_regulamento(pergunta)` → `{status, capitulo, artigos[{artigo, texto}]}` com `texto` idêntico ao chunk; `sem_resultado` lista só os 14 títulos. Assinatura de M2 substituída por D6 (Registro #14).
+- [x] **F4.6 `subagents/especialista_regulamento/agent.py`.**
   `Agent(name="especialista_regulamento", description=<dúvidas sobre o
   regulamento interno: horários, regras de uso, penalidades...>,
   model=MODELO_ESPECIALISTAS, mode="single_turn", tools=[consultar_regulamento],
@@ -742,7 +748,8 @@ o regulamento.
   pergunta no argumento `request` (`_SingleTurnAgentTool`). Acrescentar em
   `sub_agents` do `root_agent` (F3.7) e repetir F3.8 com a asserção
   `subs["especialista_regulamento"].mode == "single_turn"`.
-- [ ] **F4.7 Calibração do limiar.** Script temporário chamando a tool
+  — ✅ 2026-10-31 — evidência: `subagents/especialista_regulamento/agent.py` (`single_turn`, tool `consultar_regulamento`, `on_tool_error_callback`); entra em `sub_agents` do root. F3.8 repetido: `ok residencial_aurora ['especialista_regulamento', 'especialista_reservas', 'especialista_visitantes']`.
+- [x] **F4.7 Calibração do limiar.** Script temporário chamando a tool
   direto com: "Até que horas a piscina funciona aos domingos?" (esperado
   Capítulo IV, Art. 22), "Posso levar meu cachorro na piscina?" (IV ou
   VIII), "Qual o horário de silêncio?" (III), "Como faço uma mudança?" (IX),
@@ -750,7 +757,9 @@ o regulamento.
   (VI) e duas fora de assunto ("Qual é a capital da França?", "Receita de
   bolo"). Anotar top score e capítulo vencedor de cada uma no Registro;
   fixar `LIMIAR` abaixo do menor score correto e acima dos fora de assunto.
-- [ ] **F4.8 Verificação da Garantia 4 nos eventos.** Pela API: restaurar,
+  — ✅ 2026-10-31 — evidência: calibração com embeddings reais (top score, capítulo vencedor): piscina/domingos 0.753 IV; cachorro na piscina 0.699 IV; silêncio 0.765 III; mudança 0.716 IX; obra no sábado 0.747 X; convidados na churrasqueira 0.709 VI; capital da França 0.523 (IX); receita de bolo 0.573 (XIV). `LIMIAR = 0.63`.
+  — 🔁 2026-10-31 — recalibrado com 28 perguntas do regulamento e 8 fora de assunto no `gemini-embedding-2`: `LIMIAR = 0.66` (Registro #15).
+- [x] **F4.8 Verificação da Garantia 4 nos eventos.** Pela API: restaurar,
   criar sessão, enviar o passo 12, salvar `GET /eventos` em um arquivo
   temporário (`curl -s $B/sessoes/$S1/eventos > /tmp/eventos-s1.json`) e
   rodar, passando o caminho como argumento:
@@ -783,11 +792,13 @@ o regulamento.
 
   Esperado: `['IV']` e `ok`. O mesmo script roda em F6.4 sobre os eventos
   completos de S1.
+  — ✅ 2026-10-31 — evidência: harness-live, `gemini-3.1-flash-lite`/`gemini-3.5-flash-lite`, índice apagado antes: passo 12 → 200 em 24 s, "das 9h às 20h"; `GET /eventos` no script do plano → `capítulos com trecho nos eventos: ['IV']` e `ok`; a raiz só chama `especialista_regulamento` com `{"request": ...}` e nunca `consultar_regulamento`. Silêncio (outra sessão) → `['III']` e `ok`. Fora de assunto e "mostre o regulamento inteiro" → nenhum capítulo nos eventos.
 
 **Pronto quando.** F4.1 confere 96 artigos e 14 capítulos; `.adk/regulamento.index.json`
 existe depois da primeira consulta e a segunda consulta não chama
 `embed_content` para documentos (log); F4.7 anotado; F4.8 passa; F3.8
 repetido com os três especialistas; commit `feat: fase 4 — regulamento por RAG`; `/harness fase-4` com relatório no Registro.
+— ✅ 2026-10-31: F4.1 confere 96 artigos e 14 capítulos; o índice existe depois da 1ª consulta e a 2ª não o reconstrói (mtime e tamanho iguais; o log da API não registra as chamadas HTTP de embedding, então a prova é indireta e por teste unitário com mock); F4.7 anotado; F4.8 passa; F3.8 repetido com os três especialistas; `uv run pytest -q` → `221 passed, 3 skipped`; harness no Registro #14. **Commit não feito**: Fase 4 deixada sem staging para o Marcos revisar.
 
 ---
 
@@ -823,7 +834,11 @@ rotas de verificação lendo o banco direto.
   levantando `HTTPException(404)` se qualquer um faltar;
   `_rodar(sessao, conteudo, invocation_id=None) -> dict` que itera
   `runner.run_async`, guarda o texto do último `event.is_final_response()`,
-  relê a sessão e chama `_montar_resposta`.
+  relê a sessão e chama `_montar_resposta`. **Atenção (Registro #14):** guardar só o
+  último texto final perde a primeira metade de um pedido misto (no live da
+  Fase 4, "minhas reservas e a piscina" respondeu só a piscina, o `assistente`
+  disse as reservas num evento anterior); decidir aqui se `resposta` junta os
+  textos do turno (autor ≠ `user`, não parciais) e conferir no passo 3.
 - [ ] **F5.3 `POST /sessoes`** (`status_code=201`). Body `{"apartamento": str}`
   (`BaseModel`, `Field(min_length=1)`: vazio → `422`). `404` se
   `not dados.apartamento_existe(apartamento)` (M6).
@@ -1407,3 +1422,98 @@ texto do plano.
 
   Conclusão: Fase 3 fechada; nenhum achado muda o desenho. **Sem commit** (pedido
   do Marcos: deixar sem staging).
+- **#14 · 2026-10-31 · harness · Fase 4.** Rodada do harness sobre o RAG do
+  regulamento (`tools/regulamento.py`, `especialista_regulamento` `single_turn`,
+  raiz com o terceiro especialista e o roteamento na instrução).
+
+  **Desvios e decisões desta fase:**
+  - **Regex do chunker.** O de F4.1 (`^\*\*Art\. (\d+)\.\*\*`) casa só 87 dos 96
+    artigos: os nove primeiros usam ordinal (`**Art. 9º**`). O chunker usa
+    `(\d+)(?:º|\.)` e o `texto` fica como no arquivo.
+  - **Texto do vetor.** O que é embedado leva o título do capítulo como prefixo
+    (ajuda "piscina" a achar o Capítulo IV); o `texto` devolvido ao modelo é o
+    artigo, sem cortes, para F4.8 reconhecê-lo.
+  - **M2 → D6 (F4.5).** `consultar_regulamento(assunto, capitulo=None)` foi
+    substituída por `consultar_regulamento(pergunta)`; ver também #2.
+  - **LIMIAR = 0.63** (era 0.5 inicial): acertos 0.699–0.765, fora de assunto 0.523
+    e 0.573. Folga estreita (0.573 → 0.699); valor no meio da faixa. O limiar
+    vale para o melhor artigo do **capítulo vencedor**.
+  - **Cota de embeddings.** O free tier conta cada texto como uma requisição
+    (100/min por modelo). Construir o índice gasta 96, e a calibração bateu em
+    429 na primeira vez. `_embedar` espera 40 s e repete 429 e espera 5 s e repete
+    5xx, até 3 tentativas. A construção sob demanda no passo 12 gasta 96 + 1 da
+    pergunta, cabe na janela se nenhuma outra consulta de regulamento ocorrer no
+    mesmo minuto; o cache em `.adk/` evita repetir. **Risco para a Fase 6:** se o
+    avaliador apagar `.adk/`, a primeira pergunta de regulamento leva ~25 s.
+  - **Índice no repositório?** `.adk/` fica fora do Git (regra 10/F1.4), então um
+    clone sempre constrói o índice na 1ª pergunta. Alternativa (não adotada, pede
+    decisão): versionar o índice (1,7 MB) para pular a construção.
+
+  | Agente | Veredito | Achados | Ação |
+  |---|---|---|---|
+  | harness-simplificar | PASSOU | 0 mudanças | — |
+  | harness-revisar | ATENÇÃO | 0 alta / 1 média / 3 baixa: (1) média: o capítulo vencedor é o de maior soma no top-5, mas o limiar era checado contra o melhor artigo geral (cap. IV com 1 artigo a 0,80 perdia para cap. III com 4 a 0,64 e saía "ok"); (2) baixa: cache `[]` levantava `TypeError`; (3) baixa: lote que falha descarta os vetores e 5xx não repetia; (4) baixa: `.tmp` fixo com vários processos | (1) aplicado em parte: `melhor_score` passou a ser o do vencedor; a regra da soma (D6) foi mantida, então o caso 1×0,80 contra 4×0,64 ainda devolve o cap. III (documentado em teste); (2) aplicado; (3) aplicado só o retry de 5xx (os vetores já obtidos continuam descartados se o lote final falhar); (4) aplicado (`.pid.tmp`) |
+  | harness-testes | PASSOU | 221 passed / 0 failed / 3 skipped; `tests/unit/test_regulamento.py` (40) e dois testes em `test_agentes_e_erros.py` (a raiz agora tem 1 tool, o `_SingleTurnAgentTool`, e nenhuma FunctionTool de regulamento) | mantidos |
+  | harness-conformidade | ATENÇÃO | 9 atende / 2 parcial / 0 falta; os parciais eram F4.7 sem Registro e a prova da 2ª consulta só por mock (pendências do live e deste Registro) | resolvidos aqui e no live |
+  | harness-live | ATENÇÃO | 5 passos ok / 0 falhos / 0 repetições por 5xx (índice apagado antes): passo 12 em 24 s; script F4.8 → `['IV']` e `ok`; autores `user`, `assistente`, `especialista_regulamento` ×3, `assistente` ×2; 2ª consulta (silêncio, capítulo III, Art. 16) em 4 s com o índice intocado; consulta após reinício em 11 s, índice do cache; fora de assunto e "mostre o regulamento inteiro" sem capítulos nos eventos. Desvios: a resposta final do passo 12 diz "das 9h às 20h" sem citar o Art. 22 (ele está no `function_response` e na fala do especialista); o log da API não tem linhas de embedding (prova indireta por mtime/tamanho); pedido misto devolveu só a piscina em `resposta` | ver abaixo |
+
+  Linhas dos agentes: "harness-simplificar · fase-4 · PASSOU · 0 mudanças" ·
+  "harness-revisar · fase-4 · ATENÇÃO · 0 alta / 1 média / 3 baixa" ·
+  "harness-testes · fase-4 · PASSOU · 221 passed / 0 failed / 3 skipped" ·
+  "harness-conformidade · fase-4 · ATENÇÃO · 9 atende / 2 parcial / 0 falta" ·
+  "harness-live · fase-4 · ATENÇÃO · 5 passos ok / 0 falhos".
+
+  Decisões sobre o live: (a) **pedido misto**: o `assistente` disse as reservas
+  em um evento anterior e o campo `resposta` só trouxe a última fala; é de
+  `web.py`, não do RAG: aviso escrito em F5.2 para decidir se `resposta` junta os
+  textos do turno (passo 3 do avaliador pede os dois assuntos); (b) **artigo não
+  citado na fala final**: a instrução já manda citar o número; 1 de 2 respostas
+  citou. Observação para a Fase 6 (passo 12 exige `20h` e o evento da tool, não a
+  citação); se o avaliador quiser a citação, reforçar a instrução do especialista;
+  (c) **log de embedding**: sem linha de HTTP, a prova de "2ª consulta não
+  reembeda documentos" fica em mtime/tamanho do índice e teste com mock.
+
+  Conclusão: Fase 4 fechada; nenhum achado muda o desenho. **Sem commit**.
+- **#15 · 2026-10-31 · decisão / evidência · Fase 4 (melhoria do RAG).** A pedido
+  do Marcos, melhorada a recuperação depois da pergunta "Posso levar meu cachorro
+  na piscina?" ter marcado só 0.699 (a mais baixa entre as corretas) e avaliada a
+  sobreposição dentro do capítulo. Sem mudar o contrato da tool.
+
+  **Medição** (script temporário fora do Git; 28 perguntas do regulamento com
+  capítulo e artigo esperados, 8 fora de assunto; "folga" = pior nota dos acertos
+  menos melhor nota dos fora de assunto, no capítulo vencedor):
+
+  | Modelo / texto do chunk | Capítulo certo | Artigo esperado devolvido | Pior acerto | Melhor fora | Folga | Cachorro/piscina |
+  |---|---|---|---|---|---|---|
+  | 001 / atual (título + artigo) | 28/28 | 28/28 | 0.646 | 0.591 | +0.055 | 0.699 |
+  | 001 / + 250 car. do anterior | 28/28 | 28/28 | 0.647 | 0.583 | +0.064 | 0.689 |
+  | 001 / + 250 do anterior + 250 do seguinte | 28/28 | 27/28 (perdeu o Art. 2 no Airbnb) | 0.644 | 0.592 | +0.053 | 0.694 |
+  | 001 / + 500 do anterior | 28/28 | 28/28 | 0.650 | 0.590 | +0.060 | 0.714 |
+  | **2 / atual (título + artigo)** | 28/28 | 28/28 | 0.707 | 0.612 | **+0.095** | **0.727** |
+  | 2 / + 250 do anterior | 28/28 | 28/28 | 0.690 | 0.609 | +0.081 | 0.727 |
+
+  **Decisões:**
+  - **Modelo `gemini-embedding-2`** como padrão (`env.py`, `.env.example` e o
+    `.env` local do Marcos, só a linha `MODELO_EMBEDDINGS`). Ele não tem
+    `task_type`: a tarefa vai em prefixos (`title: <capítulo> | text: <artigo>`
+    para documentos, `task: search result | query: <pergunta>` para perguntas) e
+    uma lista de textos numa chamada vira **um** vetor agregado, então é um texto
+    por chamada (8 simultâneas). Efeito colateral bom: construir o índice caiu de
+    ~24 s para ~7 s. O `001` segue suportado (testes cobrem os dois).
+  - **`LIMIAR = 0.66`** (era 0.63): entre o pior acerto (0.707) e o melhor fora
+    de assunto (0.612). No live das chamadas diretas, "capital da França" e
+    "receita de bolo" agora dão `sem_resultado`, e o cachorro e a piscina aos
+    domingos voltam o Capítulo IV (com o Art. 26 e o Art. 22).
+  - **Sobreposição** implementada (`SOBREPOSICAO`, só dentro do capítulo, nunca no
+    primeiro artigo do capítulo, só no texto que vira vetor; o `texto` devolvido é
+    o artigo) e **deixada em 0**: nos dois modelos não melhorou de forma
+    consistente (+0.009 no 001, −0.014 no 2), e incluir o artigo seguinte piorou.
+    Ligar é trocar uma constante (o cache se invalida sozinho pelo campo
+    `sobreposicao`).
+  - A resposta do cachorro está em dois lugares do regulamento: Art. 26, VI
+    (Piscina) e Art. 56 (Animais). A busca devolve o Art. 26.
+  - Limites: 28 perguntas é pouco; a folga ainda é estreita (+0.095). A Fase 6
+    repete a calibração com perguntas novas antes de confiar no corte.
+  - Verificação: `uv run pytest -q` → `256 passed, 3 skipped`. Não repeti o
+    harness-live inteiro (só chamadas diretas à tool com embeddings reais); a
+    Fase 6 repete o passo 12 pela API.
