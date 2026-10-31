@@ -14,6 +14,7 @@ from google.adk.events import Event
 from google.genai import types
 
 import web
+from db import repo
 from web import REQUEST_CONFIRMATION
 
 PAYLOAD_SALAO = {"area": "salao-de-festas", "data": "2030-04-20", "taxa": 150.0}
@@ -189,7 +190,7 @@ async def test_eventos_preservam_a_ordem_pedido_depois_resposta(cliente):
 # --------------------------------------------------------------------------- #
 
 
-async def test_confirmacao_com_id_inexistente_devolve_409_e_nao_grava_nada(cliente, arquivos_spike):
+async def test_confirmacao_com_id_inexistente_devolve_409_e_nao_grava_nada(cliente, banco):
     # Item 5 do roteiro F0.5.
     session_id = await criar_sessao(cliente)
 
@@ -200,7 +201,7 @@ async def test_confirmacao_com_id_inexistente_devolve_409_e_nao_grava_nada(clien
     assert resposta.status_code == 409
     assert "pendente" in resposta.json()["detail"]
     assert (await cliente.get(f"/sessoes/{session_id}/eventos")).json() == []
-    assert not arquivos_spike.reservas.exists()
+    assert await repo.listar_reservas_ativas("101") == []
 
 
 async def test_confirmacao_em_sessao_inexistente_devolve_404(cliente):
@@ -222,7 +223,7 @@ async def test_confirmacao_com_corpo_invalido_devolve_422(cliente, corpo):
     assert resposta.status_code == 422
 
 
-async def test_reenvio_de_confirmacao_ja_respondida_devolve_409_sem_executar_de_novo(cliente, arquivos_spike):
+async def test_reenvio_de_confirmacao_ja_respondida_devolve_409_sem_executar_de_novo(cliente, banco):
     # Metade sem modelo do item 4: o id já tem function_response na sessão → 409, nenhum evento novo.
     session_id = await criar_sessao(cliente)
     await gravar_na_sessao(session_id, "101", evento_pedido("adk-1"), evento_resposta("adk-1", True))
@@ -232,7 +233,7 @@ async def test_reenvio_de_confirmacao_ja_respondida_devolve_409_sem_executar_de_
 
     assert resposta.status_code == 409
     assert (await cliente.get(f"/sessoes/{session_id}/eventos")).json() == eventos_antes
-    assert not arquivos_spike.reservas.exists()
+    assert await repo.listar_reservas_ativas("101") == []
 
 
 async def test_confirmacao_negada_tambem_fecha_a_pendencia_para_a_rota(cliente):
@@ -281,52 +282,43 @@ async def test_mensagem_para_sessao_inexistente_devolve_404(cliente):
 # --------------------------------------------------------------------------- #
 
 
-async def test_reservas_sem_arquivo_devolve_lista_vazia(cliente, arquivos_spike):
-    assert not arquivos_spike.reservas.exists()
-
+async def test_reservas_sem_nenhuma_devolve_lista_vazia(cliente, banco):
     resposta = await cliente.get("/apartamentos/101/reservas")
 
     assert resposta.status_code == 200
     assert resposta.json() == []
 
 
-async def test_reservas_filtra_pelo_apartamento_e_expoe_so_codigo_area_data(cliente, arquivos_spike):
-    arquivos_spike.reservas.write_text(
-        json.dumps(
-            [
-                {"codigo": "RSV-00000101", "apartamento": "101", "area": "salao-de-festas", "data": "2030-04-20"},
-                {"codigo": "RSV-00000302", "apartamento": "302", "area": "churrasqueira", "data": "2030-04-20"},
-                {"codigo": "RSV-00000102", "apartamento": "101", "area": "quadra", "data": "2030-04-21"},
-            ]
-        ),
-        encoding="utf-8",
-    )
+async def test_reservas_filtra_pelo_apartamento_e_expoe_so_codigo_area_data(cliente, banco):
+    a = await repo.criar_reserva("101", "salao-de-festas", "2030-04-20")
+    b = await repo.criar_reserva("302", "churrasqueira", "2030-04-20")
+    c = await repo.criar_reserva("101", "quadra", "2030-04-21")
 
     resposta = await cliente.get("/apartamentos/101/reservas")
 
     assert resposta.status_code == 200
     assert resposta.json() == [
-        {"codigo": "RSV-00000101", "area": "salao-de-festas", "data": "2030-04-20"},
-        {"codigo": "RSV-00000102", "area": "quadra", "data": "2030-04-21"},
+        {"codigo": a.codigo, "area": "salao-de-festas", "data": "2030-04-20"},
+        {"codigo": c.codigo, "area": "quadra", "data": "2030-04-21"},
     ]
     assert (await cliente.get("/apartamentos/302/reservas")).json() == [
-        {"codigo": "RSV-00000302", "area": "churrasqueira", "data": "2030-04-20"}
+        {"codigo": b.codigo, "area": "churrasqueira", "data": "2030-04-20"}
     ]
     assert (await cliente.get("/apartamentos/999/reservas")).json() == []
 
 
-async def test_reservas_le_o_que_a_tool_gravou(cliente, arquivos_spike):
-    """A tool grava em `agent.ARQUIVO_RESERVAS`; a rota lê `web.ARQUIVO_RESERVAS`. Os dois precisam coincidir."""
-    from agents.residencial_aurora.agent import reservar_area
+async def test_reservas_nao_lista_canceladas(cliente, banco):
+    a = await repo.criar_reserva("101", "quadra", "2030-04-21")
+    await repo.cancelar_reserva("101", a.codigo)
 
-    class Contexto:
-        state = {"apartamento": "101"}
-        tool_confirmation = None
+    assert (await cliente.get("/apartamentos/101/reservas")).json() == []
 
-        def request_confirmation(self, *, hint=None, payload=None):
-            raise AssertionError("quadra não pede confirmação")
 
-    resultado = reservar_area("quadra", "2030-04-20", Contexto())
+async def test_reservas_le_o_que_a_tool_gravou(cliente, banco, ctx):
+    """A tool e a rota compartilham o banco (`repo`)."""
+    from agents.residencial_aurora.tools.reservas import reservar_area
+
+    resultado = await reservar_area("quadra", "2030-04-20", ctx("101"))
 
     resposta = await cliente.get("/apartamentos/101/reservas")
     assert resposta.json() == [{"codigo": resultado["codigo"], "area": "quadra", "data": "2030-04-20"}]

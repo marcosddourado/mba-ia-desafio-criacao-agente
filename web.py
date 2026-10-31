@@ -29,7 +29,8 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 import env
-from agents.residencial_aurora.agent import ARQUIVO_RESERVAS, app as adk_app
+from agents.residencial_aurora.agent import app as adk_app
+from db import repo
 
 # Nome da function call que o `request_confirmation` de uma tool gera no stream
 # de eventos. É por ela que a pendência é detectada e a resposta é endereçada.
@@ -217,10 +218,6 @@ async def listar_eventos(session_id: str):
 
 @app.get("/apartamentos/{numero}/reservas")
 async def listar_reservas(numero: str):
-    # spike: lê o JSON do spike; na Fase 5 lê `repo.listar_reservas_ativas`.
-    reservas = _ler_json(ARQUIVO_RESERVAS, [])
-    return [
-        {"codigo": reserva["codigo"], "area": reserva["area"], "data": reserva["data"]}
-        for reserva in reservas
-        if reserva["apartamento"] == numero
-    ]
+    # spike: a Fase 5 acrescenta o 404 para apartamento inexistente (M6).
+    reservas = await repo.listar_reservas_ativas(numero)
+    return [{"codigo": r.codigo, "area": r.area, "data": r.data} for r in reservas]

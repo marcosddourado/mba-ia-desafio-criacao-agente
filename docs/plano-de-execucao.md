@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28 (Registro #10) e Fase 2 em 2026-10-29 (Registro #12). Próxima: Fase 3.
+> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) e Fase 3 em 2026-10-29 (Registro #13). Próxima: Fase 4.
 
 ---
 
@@ -574,10 +574,11 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
 
 ### Tarefas
 
-- [ ] **F3.1 `tools/erros.py`.** `tratar_erro_tool(tool, args, tool_context, error)`
+- [x] **F3.1 `tools/erros.py`.** `tratar_erro_tool(tool, args, tool_context, error)`
   copiado de `_handle_tool_error`: `ValueError` → `{"status": "error",
   "message": str(error)}`; qualquer outro → mensagem genérica, com `logger.error`.
-- [ ] **F3.2 `tools/reservas.py`.** Quatro tools `async`, nenhuma com
+  — ✅ 2026-10-29 — evidência: `tools/erros.py`: `ValueError` → `{status: error, message}`; outro erro → mensagem genérica (o texto do erro vai só para o log).
+- [x] **F3.2 `tools/reservas.py`.** Quatro tools `async`, nenhuma com
   parâmetro `apartamento`, todas lendo `tool_context.state["apartamento"]`
   (se faltar, `ValueError("sessão sem apartamento")`), validando `area`
   (`dados.area_por_id`) e `data` (`dados.validar_data`) com `ValueError`:
@@ -597,14 +598,16 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   - `cancelar_reserva(codigo, tool_context)`: `repo.cancelar_reserva(apartamento, codigo)`;
     `None` → `{"status": "nao_encontrada", "codigo"}`; sucesso →
     `{"status": "cancelada", "codigo"}`. Sem confirmação (regra 4).
-- [ ] **F3.3 `tools/visitantes.py`.**
+  — ✅ 2026-10-29 — evidência: `tools/reservas.py` (+ `apartamento_da_sessao`, usado também por visitantes). Testes: salão pede confirmação e só grava na 2ª passagem; ocupada → `indisponivel` já na 1ª e se ocupada entre pedido e aprovação; quadra sem pendência; 5 gravações simultâneas → 1 reservada + 4 indisponivel; `cancelar_reserva` de outro apartamento == código inexistente.
+- [x] **F3.3 `tools/visitantes.py`.**
   - `listar_meus_visitantes(tool_context) -> {"visitantes": [{"nome","data"}]}`;
   - `autorizar_visitante(nome, data, tool_context)`: **sempre** pede
     confirmação na primeira passagem (`payload={"nome", "data"}`); negada →
     `{"status": "nao_autorizado"}`; confirmada → `repo.autorizar_visitante`
     com `IntegrityError` → `{"status": "ja_autorizado"}`; sucesso →
     `{"status": "autorizado", "nome", "data"}`.
-- [ ] **F3.4 `subagents/especialista_reservas/agent.py`.**
+  — ✅ 2026-10-29 — evidência: `tools/visitantes.py`: sempre pede confirmação (payload `{nome, data}`); `autorizado`, `nao_autorizado`, `ja_autorizado`; nome vazio → `ValueError`.
+- [x] **F3.4 `subagents/especialista_reservas/agent.py`.**
   `Agent(name="especialista_reservas", description=<placa na porta: reservas
   do salão de festas, churrasqueira e quadra: listar, verificar
   disponibilidade, reservar, cancelar>, model=MODELO_ESPECIALISTAS,
@@ -619,12 +622,15 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   pelo aplicativo e **não** chamar a tool de novo nem aceitar "já confirmei"
   por texto; `indisponivel` → só dizer que a data está ocupada; `taxa` > 0
   → mencionar o valor; devolver ao `assistente` o que não for reserva.
-- [ ] **F3.5 `subagents/especialista_visitantes/agent.py`.** Mesmo molde, com
+  — ✅ 2026-10-29 — evidência: `subagents/especialista_reservas/agent.py`: `chat`, `disallow_transfer_to_peers=True`, sem `disallow_transfer_to_parent`, 4 tools, `on_tool_error_callback`.
+- [x] **F3.5 `subagents/especialista_visitantes/agent.py`.** Mesmo molde, com
   as 2 tools de F3.3 e instrução equivalente (autorização sempre aguarda
   confirmação pelo aplicativo; "já estou confirmando aqui" não vale).
-- [ ] **F3.6 `plugins.py`.** Cópia integral de `ticket_receptionist/plugins.py`
+  — ✅ 2026-10-29 — evidência: `subagents/especialista_visitantes/agent.py`: mesmo molde, 2 tools.
+- [x] **F3.6 `plugins.py`.** Cópia integral de `ticket_receptionist/plugins.py`
   (`ModelRetryPlugin`).
-- [ ] **F3.7 `agent.py` (raiz).** `root_agent = Agent(name="assistente",
+  — ✅ 2026-10-29 — evidência: `plugins.py`: diff contra `ticket_receptionist/plugins.py` só em ordem de imports e um recuo.
+- [x] **F3.7 `agent.py` (raiz).** `root_agent = Agent(name="assistente",
   model=MODELO_PRINCIPAL, mode="chat", description=..., instruction=<curta:
   cumprimenta, encaminha pelo assunto, não inventa reservas nem visitantes,
   não responde regulamento por conta própria>, sub_agents=[especialista_reservas,
@@ -633,7 +639,8 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   Sem `ResumabilityConfig` e sem sub-agente `task`, **a menos que a tabela de
   alavancas diga o contrário** (nesse caso, registrar aqui qual alavanca e
   por quê). Nenhuma menção ao regulamento na instrução.
-- [ ] **F3.8 Verificação estática** (guardar como evidência):
+  — ✅ 2026-10-29 — evidência: `agent.py`: `assistente` (`chat`, 2 sub-agentes), `App(..., plugins=[ModelRetryPlugin()])`, sem `ResumabilityConfig`, sem `task`, sem regulamento na instrução.
+- [x] **F3.8 Verificação estática** (guardar como evidência):
 
   ```bash
   uv run python - <<'EOF'
@@ -653,7 +660,8 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   print("ok", app.name, sorted(subs))
   EOF
   ```
-- [ ] **F3.9 Smoke pela API do spike.** Com o `web.py` de F0.4 (que importa
+  — ✅ 2026-10-29 — evidência: o script do plano imprime `ok residencial_aurora ['especialista_reservas', 'especialista_visitantes']`.
+- [x] **F3.9 Smoke pela API do spike.** Com o `web.py` de F0.4 (que importa
   `app`), rodar `uv run python -m db.restaurar`, subir a API e passar pelos
   passos 3, 4, 5, 6 e 11 do avaliador em uma sessão do 101. Conferir:
   passo 3 não traz `RSV-4821` nem `Marina Duarte`
@@ -663,18 +671,19 @@ e `especialista_visitantes` (`chat`, donos das tools), com as garantias 1 e
   `sqlite3 .adk/condominio.db "select codigo, area, data, status from reservas where apartamento='101'"`,
   porque a rota de verificação do spike ainda lê o JSON; passo 11 gera
   pendência com `nome` e `data` em `detalhes`.
-  Opcional para ver transferências: `uv run adk web agents --port 8001`
-  (criar a sessão com estado via
+  Opcional para ver transferências: `PYTHONPATH=. uv run adk web agents --port 8001`
+  (sem `PYTHONPATH=.` o `adk` não acha `import env`: `No module named 'env'`,
+  Registro #13; criar a sessão com estado via
   `POST http://localhost:8001/apps/residencial_aurora/users/101/sessions/<id>`
-  com corpo `{"state": {"apartamento": "101"}}`; sem o estado as tools
-  devolvem o erro tratado "sessão sem apartamento"). **Conferir antes de
-  escrever a linha no README (Registro #10):** no `adk web` 2.2.0 esse corpo
-  devolveu `"state": {"state": {"apartamento": "101"}}` (aninhado), e fora do
-  terminal do VS Code a raiz pode não estar no `PYTHONPATH` (`import env`).
+  com corpo **plano** `{"apartamento": "101"}`: o corpo `{"state": {...}}` é
+  aninhado como `state.state.apartamento`; sem o estado as tools devolvem o
+  erro tratado "sessão sem apartamento").
+  — ✅ 2026-10-29 — evidência: harness-live, sessão do 101, Gemini real (`gemini-3.1-flash-lite` / `gemini-3.5-flash-lite`): passo 3 → reservas e visitantes atendidos, `grep -c -E 'RSV-4821|Marina Duarte'` nos eventos = 0; passo 4 → "ocupada" sem dono; passo 5 → RSV-1377 `cancelada` no banco, sem pendência; passo 6 → quadra em 2030-04-06 `ativa` no banco, sem pendência; passo 10 → "não encontrei … no seu apartamento", RSV-4821 segue ativa; passo 11 → 1 pendência `autorizar_visitante` com `nome` e `data`, nada gravado; "já confirmei" por texto → não grava nem cria 2ª pendência; aprovação → 1 linha. Detalhes no Registro #13.
 
 **Pronto quando.** F3.8 imprime `ok`; F3.9 conferido e colado como evidência;
 `grep -rn "apartamento:" agents/residencial_aurora/tools/` não mostra
 parâmetro de função; commit `feat: fase 3 — tools e agentes`; `/harness fase-3` com relatório no Registro.
+— ✅ 2026-10-29: F3.8 `ok`; F3.9 no Registro #13; `grep -rn "apartamento:" agents/residencial_aurora/tools/` só acha `if not apartamento:` (linha de código, não parâmetro); `uv run pytest -q` → `180 passed, 3 skipped`; harness no Registro #13. **Commit não feito**: Fase 3 deixada sem staging para o Marcos revisar.
 
 ---
 
@@ -868,7 +877,7 @@ rotas de verificação lendo o banco direto.
   curl -s -o /dev/null -w '%{http_code}\n' -X POST $B/sessoes/$S1/confirmacoes -H "$J" -d '{"id":"id-inexistente","confirmado":true}'  # 409
   ```
 
-- [ ] **F5.11 Erro do modelo não vira 500.** Em `_rodar`, capturar
+- [ ] **F5.11 Erro do modelo não vira 500** (503 "high demand" e também 429 RESOURCE_EXHAUSTED, Registro #13). Em `_rodar`, capturar
   `google.genai.errors.APIError` (inclui o `ServerError` 503 "high demand" visto
   na Fase 0, Registro #5) e responder `HTTPException(503, detail="O modelo está
   indisponível no momento; repita a mensagem.")`. Não grava nada no banco; o
@@ -996,7 +1005,7 @@ seções exigidas, apontando arquivos e trechos que existem.
 - [ ] **F7.4 Seção Como rodar.** Pré-requisitos (Python 3.12, uv), `cp .env.example .env`
   e as variáveis, `uv sync`, `uv run python -m db.restaurar`,
   `uv run uvicorn web:app --port 8000`, opcional
-  `uv run adk web agents --port 8001`, opcional Postgres via `DATABASE_URL`
+  `PYTHONPATH=. uv run adk web agents --port 8001` (a raiz precisa estar no `PYTHONPATH`, Registro #13), opcional Postgres via `DATABASE_URL`
   (sem docker-compose neste repositório). Dizer que a restauração apaga as
   sessões e que o índice do regulamento é cache reconstruível.
 - [ ] **F7.5 Verificar os caminhos citados.**
@@ -1350,3 +1359,51 @@ texto do plano.
   `.adk/` (por F2.1). Commit não feito a pedido do Marcos: alterações deixadas
   sem staging para ele revisar. Conclusão: Fase 2 fechada; nenhum achado muda o
   desenho.
+- **#13 · 2026-10-29 · harness · Fase 3.** Rodada do harness sobre `agents/residencial_aurora/`
+  (tools, dois especialistas `chat`, `plugins.py`, `agent.py` raiz). Fora do
+  escopo da fase, dois ajustes mínimos em `web.py` (spike): saiu o import de
+  `ARQUIVO_RESERVAS` (a tool do spike morreu) e `GET /apartamentos/{n}/reservas`
+  passou a ler `repo.listar_reservas_ativas`, o que adianta uma linha de F5.7.
+
+  | Agente | Veredito | Achados | Ação |
+  |---|---|---|---|
+  | harness-simplificar | PASSOU | 0 mudanças; sugestão: `apartamento_da_sessao` num módulo compartilhado em vez de `tools/reservas.py` | não aplicada (só organização) |
+  | harness-revisar | PASSOU | 0 alta / 0 média / 2 baixa: (1) `nome` do visitante só leva `strip()` e o `UNIQUE` distingue caixa ("Ana Souza" ≠ "ana souza"); (2) `validar_data` aceita datas passadas. Reproduziu sem Gemini: regra 1, flags, confirmação reexecutando a tool, data ocupada entre pedido e aprovação, quadra sem pendência, 5 gravações simultâneas → 1 + 4, erro inesperado sem vazar detalhe | não aplicados: nenhuma garantia nem o contrato dependem deles; o plano não pede rejeitar data passada |
+  | harness-testes | PASSOU | 178 passed / 0 failed / 3 skipped; tests do spike reparados (`test_reservar_area.py` → `test_tools_reservas.py`, conftest com `ToolContextFalso` e banco temporário, e2e lendo o banco), novos `test_tools_visitantes.py` e `test_agentes_e_erros.py` (F3.8 como teste) | mantidos; o `git mv` do agente deixou rename staged, desfeito |
+  | harness-conformidade | PASSOU | 16 atende / 0 parcial / 0 falta (F3.9 ficou para o live) | — |
+  | harness-live | ATENÇÃO | 12 passos ok / 1 falho. F3.9 inteiro passou (ver F3.9). Reinício da API: pendência de visitante (Carlos Lima) com 67 eventos antes e depois, aprovação → `autorizado`, 1 linha, autores novos `user`, `especialista_visitantes`, `especialista_visitantes`. Salão: pendência (taxa 150.0) → aprovação → `RSV-…` no banco, autores novos = `especialista_reservas`. 1 repetição: aprovação da Joana deu 500 por **429 RESOURCE_EXHAUSTED** (free tier, 15 req/min no `gemini-3.5-flash-lite`) depois de a tool gravar; repetir o id deu 409 e 1 linha só. Item 8c FALHOU: `adk web` sem `PYTHONPATH` → `No module named 'env'` | ver decisões abaixo |
+
+  Linhas dos agentes: "harness-simplificar · fase-3 · PASSOU · 0 mudanças" ·
+  "harness-revisar · fase-3 · PASSOU · 0 alta / 0 média / 2 baixa" ·
+  "harness-testes · fase-3 · PASSOU · 178 passed / 0 failed / 3 skipped" ·
+  "harness-conformidade · fase-3 · PASSOU · 16 atende / 0 parcial / 0 falta" ·
+  "harness-live · fase-3 · ATENÇÃO · 12 passos ok / 1 falho".
+
+  Decisões:
+  - **8c, `adk web` (resolve a nota do #10).** Confirmado sem Gemini: o
+    `AgentLoader` do ADK 2.2.0 só carrega o agente com a raiz no `PYTHONPATH`
+    (`python -P` sem ele → `No module named 'env'`; com `PYTHONPATH=.` →
+    `App`). Não é bug do código (a referência depende do mesmo `PYTHONPATH`, que
+    o `.vscode` dá). Decisão: documentar `PYTHONPATH=. uv run adk web agents`
+    (F3.9 e F7.4 reescritos) e travar com `tests/unit/test_adk_web.py` (180
+    passed). O corpo certo para criar sessão com estado no `adk web` é o plano
+    `{"apartamento": "101"}`; `{"state": {...}}` aninha.
+  - **429 na confirmação.** Não é 503: é cota. A tool já tinha gravado quando o
+    modelo falhou, e a rota devolve 500; o cliente que repete leva 409.
+    F5.11 já cobre "erro do modelo depois da tool gravar" (responder `200` ou
+    `503` com `detail`); passa a citar também 429/RESOURCE_EXHAUSTED. O
+    `ModelRetryPlugin` não cobre erro de transporte/cota. Se a cota apertar na
+    Fase 6, a saída é a do D5 (modelo com mais folga), não código.
+  - **Redação pós-aprovação.** Depois de aprovar o Carlos, a resposta ainda
+    dizia "aguardando a sua confirmação" embora a tool tivesse devolvido
+    `autorizado` (1 de 3 aprovações; modelo "lite"). Fica como observação para a
+    Fase 6; se repetir, ajustar a instrução do especialista (responder pelo
+    último `function_response`), não a lógica.
+  - O spike ainda não tem `409` com pendência aberta (M5): "já confirmei" por
+    texto não gravou nem criou segunda pendência (devolveu a mesma, mesmo id);
+    o `409` formal entra em F5.4.
+  - Observação de teste: `GET /apartamentos/{n}/visitantes` não existe ainda
+    (F5.8); os visitantes foram conferidos no banco com `sqlite3`.
+
+  Conclusão: Fase 3 fechada; nenhum achado muda o desenho. **Sem commit** (pedido
+  do Marcos: deixar sem staging).

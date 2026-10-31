@@ -25,18 +25,67 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_DIR_ADK_TESTES / 'condomini
 
 @pytest.fixture(autouse=True)
 def arquivos_spike(tmp_path, monkeypatch):
-    """Aponta os JSONs do spike (reservas e mapa de sessões) para `tmp_path`.
+    """Aponta o JSON do spike (mapa de sessões) para `tmp_path`.
 
-    `web.py` importa `ARQUIVO_RESERVAS` por nome, então o módulo do agente e o
-    `web` têm vínculos separados; os dois apontam para o mesmo arquivo para que
-    a tool grave onde `GET /apartamentos/{n}/reservas` lê.
+    As reservas agora vivem no banco (Fase 3); só o mapa de sessões segue em JSON.
     """
     import web
-    from agents.residencial_aurora import agent
-
-    reservas = tmp_path / "spike_reservas.json"
     sessoes = tmp_path / "spike_sessoes.json"
-    monkeypatch.setattr(agent, "ARQUIVO_RESERVAS", str(reservas))
-    monkeypatch.setattr(web, "ARQUIVO_RESERVAS", str(reservas))
     monkeypatch.setattr(web, "ARQUIVO_SESSOES", str(sessoes))
-    return SimpleNamespace(reservas=reservas, sessoes=sessoes, dir_adk=_DIR_ADK_TESTES)
+    return SimpleNamespace(sessoes=sessoes, dir_adk=_DIR_ADK_TESTES)
+
+
+class ConfirmacaoFalsa:
+    def __init__(self, confirmed: bool):
+        self.confirmed = confirmed
+
+
+class ToolContextFalso:
+    """Só o que as tools usam: `state`, `tool_confirmation` e `request_confirmation`."""
+
+    def __init__(self, state=None, tool_confirmation=None):
+        self.state = {} if state is None else state
+        self.tool_confirmation = tool_confirmation
+        self.pedidos: list[dict] = []
+
+    def request_confirmation(self, *, hint=None, payload=None) -> None:
+        self.pedidos.append({"hint": hint, "payload": payload})
+
+
+@pytest.fixture
+def ctx():
+    """Fábrica de contexto: `ctx("101")`, `ctx("101", True)` (confirmada), `ctx(None)` (sem apartamento)."""
+
+    def fabrica(apartamento="101", confirmado=None):
+        state = {} if apartamento is None else {"apartamento": apartamento}
+        conf = None if confirmado is None else ConfirmacaoFalsa(confirmado)
+        return ToolContextFalso(state=state, tool_confirmation=conf)
+
+    return fabrica
+
+
+@pytest.fixture
+async def banco(tmp_path, monkeypatch):
+    """SQLite temporário com o esquema criado, ligado ao `repo` (nunca `.adk/`)."""
+    from sqlalchemy import event
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from db import repo
+    from db.models import Base
+
+    eng = create_async_engine(
+        f"sqlite+aiosqlite:///{tmp_path / 'condominio.db'}", connect_args={"timeout": 30}
+    )
+
+    @event.listens_for(eng.sync_engine, "connect")
+    def _pragmas(conn, _):
+        cur = conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.close()
+
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    monkeypatch.setattr(repo, "async_session", async_sessionmaker(eng, expire_on_commit=False))
+    yield tmp_path / "condominio.db"
+    await eng.dispose()
