@@ -2,7 +2,7 @@
 
 > **Para quem é este arquivo.** Para o agente que vai escrever o plano de execução
 > (`docs/plano-de-execucao.md`) e para os agentes que vão implementar e marcar o
-> progresso. Ele complementa o enunciado em [`README.md`](../README.md); nunca o
+> progresso. Ele complementa o enunciado em [`enunciado.md`](enunciado.md); nunca o
 > substitui. Se este arquivo e o enunciado divergirem, o enunciado vence.
 >
 > **Padrão de referência.** Tudo aqui segue o projeto da disciplina em
@@ -18,7 +18,7 @@
 > menores (M1–M9) foram decididos pelo Marcos. Onde a decisão divergiu da
 > recomendação (D1 e D6), o texto mantém a análise original e acrescenta um bloco
 > **Decisão** com as consequências. Próximo passo: o agente de planejamento
-> escreve `docs/plano-de-execucao.md` a partir deste arquivo e do `README.md`,
+> escreve `docs/plano-de-execucao.md` a partir deste arquivo e do `enunciado.md`,
 > começando pela Fase 0 (seção 6).
 
 ---
@@ -52,7 +52,7 @@ que este desafio precisa. A tabela diz de onde copiar o estilo.
 
 | Aspecto | Onde está na referência | Como aplicar aqui |
 |---|---|---|
-| Layout de projeto | raiz: `web.py`, `db/`, `agents/`, `docs/`, `api.http`, `.env.example`, `docker-compose.yml`, `.vscode/settings.json` | Mesma raiz, sem `api.http` (Registro #9 do plano). `agents/residencial_aurora/` com `agent.py` (`root_agent` + `app`), `subagents/`, `tools/`. `db/` com `engine.py`, `models.py`, `repo.py`, `restaurar.py`. |
+| Layout de projeto | raiz: `web.py`, `db/`, `agents/`, `docs/`, `api.http`, `.env.example`, `docker-compose.yml`, `.vscode/settings.json` | Mesma raiz; `api.http` não é versionado (Registro #9): o Marcos pediu um local, só para teste manual, e ele está no `.gitignore`. `agents/residencial_aurora/` com `agent.py` (`root_agent` + `app`), `subagents/`, `tools/`. `db/` com `engine.py`, `models.py`, `repo.py`, `restaurar.py`. |
 | Descoberta pelo `adk web` | `docs/01-adk-run-carregamento-de-agentes.md`: pasta = app, `agent.py` expõe `root_agent` ou `app` | `uv run adk web agents` continua funcionando para depurar transferências e confirmações. |
 | Montagem do runtime | `web.py` (raiz): `App(root_agent=..., name=..., plugins=[...])`, `Runner(app=..., session_service=...)`, `SqliteSessionService(f"{CURRENT_PATH}/.adk/....db")` com `os.makedirs` | Idêntico. Um `App`, um `Runner`, um `session_service` global no módulo. |
 | Leitura do stream de eventos | `web.py`: `_texto(event)`, `event.is_final_response()`, `event.get_function_responses()` | Mesmos helpers. A resposta do morador = texto do evento final; dado de máquina sai do `function_response`, nunca de parse do texto. |

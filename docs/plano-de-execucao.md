@@ -990,10 +990,10 @@ seções exigidas, apontando arquivos e trechos que existem.
 
 ### Tarefas
 
-- [ ] **F7.1 Preservar o enunciado.** `git mv README.md docs/enunciado.md` e
+- [x] **F7.1 Preservar o enunciado.** `git mv README.md docs/enunciado.md` e
   ajustar o link no cabeçalho de `docs/decisoes-tecnicas.md` e deste plano
   (`../README.md` → `enunciado.md`).
-- [ ] **F7.2 Seção Arquitetura.** Tabela com cada agente (`assistente`,
+- [x] **F7.2 Seção Arquitetura.** Tabela com cada agente (`assistente`,
   `especialista_reservas`, `especialista_visitantes`,
   `especialista_regulamento`): responsabilidade, `mode`, modelo (variável do
   `.env`), tools, como é acionado (`transfer_to_agent` para os `chat`;
@@ -1001,7 +1001,7 @@ seções exigidas, apontando arquivos e trechos que existem.
   confirmação; single_turn para consulta autônoma; por que o principal não
   tem tools). Um diagrama de sequência curto (mermaid) do passo 7/8. Um
   parágrafo sobre `App` + `Runner` + `SqliteSessionService` e sobre o banco.
-- [ ] **F7.3 Seção Garantias.** Para cada uma: arquivo, função ou trecho
+- [x] **F7.3 Seção Garantias.** Para cada uma: arquivo, função ou trecho
   (com link `arquivo#Lnn`) e por que não depende do modelo:
   - G1: `agents/residencial_aurora/tools/reservas.py::reservar_area` e
     `tools/visitantes.py::autorizar_visitante` (`request_confirmation`),
@@ -1017,20 +1017,20 @@ seções exigidas, apontando arquivos e trechos que existem.
     `assistente` sem regulamento; citar o evento do passo 12;
   - G5: `db/models.py` (índice único parcial), `reservar_area` tratando
     `IntegrityError`, resultado do passo 14.
-- [ ] **F7.4 Seção Como rodar.** Pré-requisitos (Python 3.12, uv), `cp .env.example .env`
+- [x] **F7.4 Seção Como rodar.** Pré-requisitos (Python 3.12, uv), `cp .env.example .env`
   e as variáveis, `uv sync`, `uv run python -m db.restaurar`,
   `uv run uvicorn web:app --port 8000`, opcional
   `PYTHONPATH=. uv run adk web agents --port 8001` (a raiz precisa estar no `PYTHONPATH`, Registro #13), opcional Postgres via `DATABASE_URL`
   (sem docker-compose neste repositório). Dizer que a restauração apaga as
   sessões e que o índice do regulamento é cache reconstruível.
-- [ ] **F7.5 Verificar os caminhos citados.**
+- [x] **F7.5 Verificar os caminhos citados.**
 
   ```bash
   grep -oE '`[A-Za-z0-9_./-]+\.(py|md|http|toml|json|example)`' README.md | tr -d '`' | sort -u | while read p; do [ -e "$p" ] || echo "NÃO EXISTE: $p"; done
   ```
 
   Saída vazia. Para cada `::funcao` citado, `grep -n "def funcao" arquivo`.
-- [ ] **F7.6 Checagens do passo 15.** `git fetch https://github.com/devfullcycle/mba-ia-desafio-criacao-agente main && git diff --stat FETCH_HEAD -- dados/`
+- [x] **F7.6 Checagens do passo 15.** `git fetch https://github.com/devfullcycle/mba-ia-desafio-criacao-agente main && git diff --stat FETCH_HEAD -- dados/`
   vazio (alternativa local: `git diff --stat be87e1d -- dados/`);
   `git ls-files | grep -E '(^|/)\.env$'` vazio; `git grep -nE '(AIza|AQ\.)[0-9A-Za-z._-]{20,}'`
   vazio e a busca do valor literal do `.env` vazia (comando de F1.7);
