@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) Fase 4 em 2026-10-31 (Registro #14) e Fase 5 em 2026-10-31 (Registro #16) e Fase 6 em 2026-10-31 (Registro #17). Próxima: Fase 7.
+> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) Fase 4 em 2026-10-31 (Registro #14) e Fase 5 em 2026-10-31 (Registro #16) Fase 6 em 2026-10-31 (Registro #17) e Fase 7 em 2026-10-31 (Registro #18). Todas as fases concluídas.
 
 ---
 
@@ -1035,7 +1035,7 @@ seções exigidas, apontando arquivos e trechos que existem.
   `git ls-files | grep -E '(^|/)\.env$'` vazio; `git grep -nE '(AIza|AQ\.)[0-9A-Za-z._-]{20,}'`
   vazio e a busca do valor literal do `.env` vazia (comando de F1.7);
   `grep -n 'google-adk===2.2.0' pyproject.toml`; F3.8 repetido.
-- [ ] **F7.7 Clone limpo.** `git clone <repo> /tmp/aurora-teste && cd /tmp/aurora-teste && cp .env.example .env`
+- [x] **F7.7 Clone limpo.** `git clone <repo> /tmp/aurora-teste && cd /tmp/aurora-teste && cp .env.example .env`
   (preencher a chave), `uv sync`, `uv run python -m db.restaurar`,
   `uv run uvicorn web:app --port 8000`, e o passo 1 do avaliador
   (`GET /apartamentos/101/reservas` com `RSV-1377`,
@@ -1595,4 +1595,23 @@ definido e 12 fora de assunto; modelo `gemini-embedding-2`):
 | Agente | Veredito | Achados | Ação |
 |---|---|---|---|
 | harness-live | ATENÇÃO | 14 passos ok / 0 falhos; 6 repetições por 503; texto do passo 12 repetido | só redação; registrado |
+
+### 18. Fase 7 — README final (2026-10-31)
+
+`README.md` novo com Arquitetura (tabela de agentes, por quê de cada `mode`, diagrama de sequência do passo 7/8),
+Garantias (arquivo e linha de cada uma, com a evidência dos passos 3, 10, 11, 12, 13 e 14) e Como rodar; o enunciado
+foi preservado em `docs/enunciado.md` e os links de `docs/decisoes-tecnicas.md` e deste plano foram ajustados.
+`api.http` existe só localmente (no `.gitignore`).
+
+| Verificação | Resultado |
+|---|---|
+| F7.5 caminhos citados no README | saída vazia; todas as âncoras `#Lnn` conferidas na linha do trecho descrito |
+| F7.6 `git diff --stat be87e1d -- dados/` | vazio |
+| F7.6 `.env` no Git / regex `(AIza\|AQ\.)…` / valor literal da chave no repositório | vazios |
+| F7.6 `google-adk===2.2.0` | `pyproject.toml:8`; `uv.lock` em 2.2.0 |
+| harness-conformidade (final, contra o enunciado inteiro) | ATENÇÃO: 29 atende / 1 parcial / 0 falta; o parcial era só o Registro da Fase 6/7 ausente, resolvido neste e no #17; 409 extras e `disallow_transfer_to_peers` passaram a constar no README |
+| F7.7 clone limpo (clone local de `main`, `.env` só com a chave, `uv sync`, `db.restaurar`, uvicorn) | RSV-1377 e Marina Duarte; primeira pergunta de regulamento construiu `.adk/regulamento.index.json` sozinha e respondeu "9h às 20h" (Art. 22); `pytest` 281 passed, 3 skipped; `git status` limpo; 1 repetição por 503 |
+
+**Limitação:** o tempo da primeira pergunta num clone novo não foi medido limpo (a 1ª tentativa deu 503 do Gemini
+depois de construir o índice; a 2ª levou 2 s).
 
