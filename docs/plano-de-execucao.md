@@ -3,7 +3,7 @@
 > **Para quem é este arquivo.** Para os agentes implementadores. Ele é a única
 > fonte de progresso do projeto: cada tarefa é um checkbox que o implementador
 > marca com data e evidência. Ele foi escrito a partir do enunciado em
-> [`README.md`](../README.md) e das decisões fechadas em
+> [`enunciado.md`](enunciado.md) e das decisões fechadas em
 > [`docs/decisoes-tecnicas.md`](decisoes-tecnicas.md). Se os três divergirem, a
 > ordem é: enunciado > decisões > este plano. Qualquer desvio entra no
 > [Registro de execução](#registro-de-execução), no fim.
@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) Fase 4 em 2026-10-31 (Registro #14) e Fase 5 em 2026-10-31 (Registro #16). Próxima: Fase 6.
+> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) Fase 4 em 2026-10-31 (Registro #14) e Fase 5 em 2026-10-31 (Registro #16) e Fase 6 em 2026-10-31 (Registro #17). Próxima: Fase 7.
 
 ---
 
@@ -935,16 +935,16 @@ limpo de dados, colando evidências. Sem `api.http` (Registro #9).
   `{{p7.response.body.$.confirmacoes_pendentes[0].id}}`); S1, S2, S3 e S4
   nomeados. No passo 14, comentário com o comando `curl ... & curl ... & wait`
   (o cliente HTTP do editor não dispara em paralelo).
-- [ ] **F6.2 Passos 1–6.** `uv run python -m db.restaurar`, subir a API,
+- [x] **F6.2 Passos 1–6.** `uv run python -m db.restaurar`, subir a API,
   executar e conferir cada "Confere que" do enunciado. Evidências: status e
   campos-chave de cada resposta; `GET /apartamentos/101/reservas` antes e
   depois dos passos 5 e 6; `grep -c -E 'RSV-4821|Marina Duarte'` nos eventos
   de S1 após os passos 3 e 4 → `0`.
-- [ ] **F6.3 Passos 7–9.** Pendência com `area` e `data` em `detalhes`;
+- [x] **F6.3 Passos 7–9.** Pendência com `area` e `data` em `detalhes`;
   `false` → nada gravado; novo pedido → `true` → exatamente uma reserva;
   mesmo `id` → `409` e continua uma; `id-inexistente` → `409`;
   `GET /sessoes/sessao-inexistente/eventos` → `404`.
-- [ ] **F6.4 Passos 10–12.** S2 do 101 pede o salão em 2030-03-16 (ocupado
+- [x] **F6.4 Passos 10–12.** S2 do 101 pede o salão em 2030-03-16 (ocupado
   pelo 302): aprovar se houver pendência; conferir que não há reserva, que
   nenhuma resposta contém `RSV-4821` nem `302` isolado
   (`grep -oE '(^|[^0-9A-Za-z-])302([^0-9A-Za-z-]|$)'` nas respostas → vazio)
@@ -954,12 +954,12 @@ limpo de dados, colando evidências. Sem `api.http` (Registro #9).
   `function_call` das tools dos passos anteriores; rodar o script de F4.8
   sobre os eventos de S1 (todos, não só os do passo 12); **anotar a
   quantidade de eventos** (`curl -s $B/sessoes/$S1/eventos | jq length`).
-- [ ] **F6.5 Passo 13 — reinício.** Ctrl+C, subir com o mesmo comando, sem
+- [x] **F6.5 Passo 13 — reinício.** Ctrl+C, subir com o mesmo comando, sem
   restaurar. `jq length` igual ao anotado; nova mensagem em S1 → `200` e
   contagem maior; rotas de verificação: 101 com quadra 2030-04-06 e salão
   2030-04-20, sem `RSV-1377`, Joana em 2030-04-21; 302 ainda com `RSV-4821`;
   códigos novos distintos entre si e de `RSV-1377`, `RSV-4821`, `RSV-2950`.
-- [ ] **F6.6 Passo 14 — disputa.** S3 (101) e S4 (201) pedem o salão em
+- [x] **F6.6 Passo 14 — disputa.** S3 (101) e S4 (201) pedem o salão em
   2030-05-11; ambas com pendência; então:
 
   ```bash
@@ -972,7 +972,7 @@ limpo de dados, colando evidências. Sem `api.http` (Registro #9).
 
   Dois `200`; a soma das duas contagens é `1`. Repetir a disputa 3 vezes
   (restaurar entre elas) e anotar qual apartamento venceu em cada uma.
-- [ ] **F6.7 Evidências e Registro.** Entrada no Registro com a tabela
+- [x] **F6.7 Evidências e Registro.** Entrada no Registro com a tabela
   passo → resultado → evidência resumida, e qualquer ajuste de instrução ou
   `description` que tenha sido necessário para o roteamento acertar.
 
@@ -1551,4 +1551,48 @@ com 19 eventos antes e depois, aprovação gerou `RSV-15DA9A01`, reenvio 409;
 Autores após a confirmação: `user, especialista_*, especialista_*`. Banco restaurado.
 
 **Não coberto:** 429/503 reais não ocorreram no live (só testes com `run_async` falso).
+
+### 17. Fase 6 — Passagem pelos 14 passos do avaliador (2026-10-31)
+
+Sem código novo da fase. Passagem feita pelo `harness-live` com Gemini real,
+banco restaurado antes, API reiniciada no passo 13. A frase de cada passo é a
+do enunciado (`docs/enunciado.md`, "Fluxo do avaliador").
+
+| Passo | Resultado | Evidência resumida |
+|---|---|---|
+| 1 | ok | 101 lista `RSV-1377`; 302 lista Marina Duarte |
+| 2 | ok | `201` com `session_id` |
+| 3 | ok | `grep -c 'RSV-4821\|Marina Duarte'` na resposta e nos eventos: 0 e 0 |
+| 4 | ok | 302 mantém `RSV-4821`; `RSV-4821` na resposta e nos eventos: 0 e 0 |
+| 5 | ok | `confirmacoes_pendentes: []`; 101 sem `RSV-1377` |
+| 6 | ok | sem pendência; quadra 2030-04-06 (`RSV-1331029E`) |
+| 7 | ok | pendência `reservar_area` com `{area, data, taxa:150.0}`; `false` → salão 0 |
+| 8 | ok | aprovação → `RSV-FE44FB4A`, contagem 1; reenvio do mesmo id → `409`, continua 1 |
+| 9 | ok | `id-inexistente` → `409`; `sessao-inexistente` → `404` |
+| 10 | ok | S2: "data ocupada", sem pendência; sem `RSV-4821` e sem `302` isolado nas respostas e nos eventos |
+| 11 | ok | pendência `autorizar_visitante` `{nome:"Joana Ribeiro", data:"2030-04-21"}` com "Já estou confirmando aqui"; só aparece após aprovar |
+| 12 | ok | "das 9h às 20h" (Art. 22); 69 eventos em S1; script F4.8: capítulos com trecho `['IV']` |
+| 13 | ok | 69 eventos antes e depois do reinício, 75 após nova mensagem; 101 com quadra e salão, sem `RSV-1377`, Joana autorizada; 302 com `RSV-4821`; códigos distintos |
+| 14 | ok | três disputas S3 (101) × S4 (201): sempre `200` + `200`, soma 1; vencedores 201, 201, 101 |
+
+**Intercorrências.** 6 respostas `503` do Gemini (passos 3, 10, 12 e 14), todas resolvidas na repetição seguinte
+(espera de ~40 s); a API respondeu `503` com o `detail` do plano, sem `500`. No passo 12 o texto saiu repetido
+("Conforme o Art. 22…" e uma segunda frase equivalente): o horário está certo; é redação (a `resposta` junta os
+textos finais do turno, F5.2) e foi deixada como está. Nenhum ajuste de instrução foi necessário para o roteamento.
+
+**Recalibração do `LIMIAR`** (script temporário fora do Git; 23 perguntas novas com capítulo esperado, 2 sem capítulo
+definido e 12 fora de assunto; modelo `gemini-embedding-2`):
+
+- 22/23 no capítulo certo. Erro: "Entregador pode subir até o apartamento?" foi para o Capítulo IX (Mudanças, 0.702); a
+  resposta está no Art. 47 (Capítulo VII). É falha de roteamento por capítulo, não do limiar.
+- Pior acerto 0.713; melhor fora de assunto de verdade (10 perguntas) 0.598 → folga **+0.115** (era +0.095).
+  "Quanto custa a taxa do condomínio?" (0.727) e "Qual o telefone do síndico?" (0.693) passam o corte: são do tema
+  condomínio (o Art. 11 trata da cota condominial) e o especialista só responde com o que os artigos dizem.
+- **Decisão: `LIMIAR` continua 0.66** (fica entre 0.598 e 0.713).
+
+**Não coberto:** o passo 15 e o clone limpo ficam para a Fase 7.
+
+| Agente | Veredito | Achados | Ação |
+|---|---|---|---|
+| harness-live | ATENÇÃO | 14 passos ok / 0 falhos; 6 repetições por 503; texto do passo 12 repetido | só redação; registrado |
 

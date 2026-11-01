@@ -11,3 +11,6 @@ __pycache__/
 .pytest_cache/
 .history/
 .DS_Store
+
+# Roteiro manual do avaliador (REST Client); não versionado
+api.http
