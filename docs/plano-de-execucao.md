@@ -22,7 +22,7 @@
 > passou por ele em 2026-10-24 (Registro #7). Modelos padrão trocados em
 > 2026-10-28 para `gemini-3.1-flash-lite` (principal) e `gemini-3.5-flash-lite`
 > (especialistas) por decisão do Marcos (Registro #11; antes #8). Fase 1 concluída
-> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) e Fase 4 em 2026-10-31 (Registro #14). Próxima: Fase 5.
+> em 2026-10-28 (Registro #10) Fase 2 em 2026-10-29 (Registro #12) Fase 3 em 2026-10-29 (Registro #13) Fase 4 em 2026-10-31 (Registro #14) e Fase 5 em 2026-10-31 (Registro #16). Próxima: Fase 6.
 
 ---
 
@@ -819,12 +819,12 @@ rotas de verificação lendo o banco direto.
 
 ### Tarefas
 
-- [ ] **F5.1 Montagem.** `import env` primeiro; `os.makedirs(.adk)`;
+- [x] **F5.1 Montagem.** `import env` primeiro; `os.makedirs(.adk)`;
   `session_service = SqliteSessionService(env.SESSION_DB_PATH)`;
   `runner = Runner(app=app, session_service=session_service)`; `lifespan`
   com `init_db()`/`close_db()`; `FastAPI(title="Assistente do Residencial Aurora", lifespan=lifespan)`.
   Constante `REQUEST_CONFIRMATION = "adk_request_confirmation"`.
-- [ ] **F5.2 Helpers.** `_texto(event)` (cópia); `_pendencias(sessao) -> list[dict]`
+- [x] **F5.2 Helpers.** `_texto(event)` (cópia); `_pendencias(sessao) -> list[dict]`
   exatamente como a seção 7 das decisões (`id` = id da function call,
   `acao` = `originalFunctionCall.name`, `detalhes` = `toolConfirmation.payload`,
   removendo as que já têm `function_response` de mesmo id);
@@ -839,13 +839,13 @@ rotas de verificação lendo o banco direto.
   Fase 4, "minhas reservas e a piscina" respondeu só a piscina, o `assistente`
   disse as reservas num evento anterior); decidir aqui se `resposta` junta os
   textos do turno (autor ≠ `user`, não parciais) e conferir no passo 3.
-- [ ] **F5.3 `POST /sessoes`** (`status_code=201`). Body `{"apartamento": str}`
+- [x] **F5.3 `POST /sessoes`** (`status_code=201`). Body `{"apartamento": str}`
   (`BaseModel`, `Field(min_length=1)`: vazio → `422`). `404` se
   `not dados.apartamento_existe(apartamento)` (M6).
   `session_service.create_session(app_name=runner.app_name, user_id=apartamento, state={"apartamento": apartamento})`,
   depois `repo.criar_sessao(sessao.id, apartamento)`. Resposta
   `{"session_id": sessao.id}`.
-- [ ] **F5.4 `POST /sessoes/{session_id}/mensagens`.** Body `{"texto": str}`
+- [x] **F5.4 `POST /sessoes/{session_id}/mensagens`.** Body `{"texto": str}`
   com `Field(min_length=1)` (vazio → `422`; texto vazio chegaria ao modelo como
   turno invisível e viraria 500, Registro #7). `_carregar_sessao` (404). Se
   `_pendencias(sessao)` não está vazia →
@@ -855,7 +855,7 @@ rotas de verificação lendo o banco direto.
   (`ValueError: Tool 'reservar_area' not found` → 500, aprovação consumida e
   perdida; Registro #7, achado 1). Senão
   `_rodar(sessao, Content(role="user", parts=[Part.from_text(texto)]))`.
-- [ ] **F5.5 `POST /sessoes/{session_id}/confirmacoes`.** Body
+- [x] **F5.5 `POST /sessoes/{session_id}/confirmacoes`.** Body
   `{"id": str, "confirmado": bool}`. `_carregar_sessao` (404). Se `id` não
   está em `_pendencias(sessao)` → `HTTPException(409, detail="Não existe confirmação pendente com esse id nesta sessão.")`
   — cobre id já respondido e id inexistente. Defesa extra (Registro #7,
@@ -866,17 +866,17 @@ rotas de verificação lendo o banco direto.
   `Content(role="user", parts=[Part(function_response=FunctionResponse(id=id, name=REQUEST_CONFIRMATION, response={"confirmed": confirmado}))])`
   e `_rodar`. **Se a alavanca F0.6b estiver em uso**, passar
   `invocation_id` do evento que carrega a function call com esse `id`.
-- [ ] **F5.6 `GET /sessoes/{session_id}/eventos`.** `_carregar_sessao` (404);
+- [x] **F5.6 `GET /sessoes/{session_id}/eventos`.** `_carregar_sessao` (404);
   devolve `[e.model_dump(mode="json", exclude_none=True) for e in sessao.events]`
   em ordem (M9).
-- [ ] **F5.7 `GET /apartamentos/{numero}/reservas`.** `404` se o apartamento
+- [x] **F5.7 `GET /apartamentos/{numero}/reservas`.** `404` se o apartamento
   não existe (M6). `[{"codigo", "area", "data"}]` das reservas ativas, lido
   direto do banco (`repo.listar_reservas_ativas`), sem passar pelo modelo.
-- [ ] **F5.8 `GET /apartamentos/{numero}/visitantes`.** Idem, `[{"nome", "data"}]`.
-- [ ] **F5.9 Limpeza do spike.** Remover o mapa `.adk/spike_sessoes.json`, a
+- [x] **F5.8 `GET /apartamentos/{numero}/visitantes`.** Idem, `[{"nome", "data"}]`.
+- [x] **F5.9 Limpeza do spike.** Remover o mapa `.adk/spike_sessoes.json`, a
   gravação em `.adk/spike_reservas.json` e qualquer rota ou helper exclusivo
   do spike; apagar os arquivos em `.adk/`.
-- [ ] **F5.10 Verificação do contrato por `curl`** (colar como evidência):
+- [x] **F5.10 Verificação do contrato por `curl`** (colar como evidência):
 
   ```bash
   B=http://localhost:8000; J='content-type: application/json'
@@ -892,7 +892,7 @@ rotas de verificação lendo o banco direto.
   curl -s -o /dev/null -w '%{http_code}\n' -X POST $B/sessoes/$S1/confirmacoes -H "$J" -d '{"id":"id-inexistente","confirmado":true}'  # 409
   ```
 
-- [ ] **F5.11 Erro do modelo não vira 500** (503 "high demand" e também 429 RESOURCE_EXHAUSTED, Registro #13). Em `_rodar`, capturar
+- [x] **F5.11 Erro do modelo não vira 500** (503 "high demand" e também 429 RESOURCE_EXHAUSTED, Registro #13). Em `_rodar`, capturar
   `google.genai.errors.APIError` (inclui o `ServerError` 503 "high demand" visto
   na Fase 0, Registro #5) e responder `HTTPException(503, detail="O modelo está
   indisponível no momento; repita a mensagem.")`. Não grava nada no banco; o
@@ -1517,3 +1517,38 @@ texto do plano.
   - Verificação: `uv run pytest -q` → `256 passed, 3 skipped`. Não repeti o
     harness-live inteiro (só chamadas diretas à tool com embeddings reais); a
     Fase 6 repete o passo 12 pela API.
+
+### 16. Fase 5 — API no contrato do enunciado (2026-10-31)
+
+`web.py` reescrito: lifespan (`init_db`/`close_db`), sessões na tabela `sessoes`
+(mapa JSON do spike removido), 404 para apartamento/sessão inexistente, 409 em
+`/mensagens` com pendência e em `/confirmacoes` (id não pendente ou autor do
+pedido ≠ último agente, sem consumir a pendência), `GET /apartamentos/{n}/visitantes`,
+503 do modelo com releitura da sessão.
+
+| Agente | Veredito | Achados | Ação |
+|---|---|---|---|
+| harness-simplificar | ATENÇÃO | 3 mudanças sem efeito (`_reler`, `_exigir_apartamento`) | aplicadas |
+| harness-revisar | ATENÇÃO | 0 alta / 1 média / 2 baixa: `_turno_avancou` contava `transfer_to_agent` e tools de leitura (200 vazio em vez de 503); dedupe global descartava texto igual; `thought` não filtrado | os 3 corrigidos (`TOOLS_QUE_GRAVAM`, dedupe só consecutivo, `not part.thought`) |
+| harness-testes | PASSOU | 281 passed / 0 failed / 3 skipped | fixture `arquivos_spike` removida; 40 testes de rota novos |
+| harness-conformidade | ATENÇÃO | 14 atende / 3 parcial / 0 falta (sem tupla em `_carregar_sessao`, sem `invocation_id`, curl no live) | só documentação; escolhas abaixo |
+| harness-live | PASSOU | 22 passos ok / 0 falhos, 0 repetições por 5xx | — |
+
+**Decisões:**
+- `resposta` junta os textos finais do turno (autor ≠ `user`, `is_final_response`,
+  sem repetir consecutivo): no live "minhas reservas e a piscina" trouxe as reservas
+  e o horário da piscina (resolve o alerta do Registro #14).
+- `_carregar_sessao` devolve só a `Session` (o registro de `sessoes` só serve para
+  achar o `user_id`); `_rodar` sem `invocation_id` porque a alavanca F0.6b está em "não".
+- Só `reservar_area`, `cancelar_reserva` e `autorizar_visitante` contam como "o turno
+  avançou" no erro do modelo: transferência e leitura devolvem 503.
+
+**Evidência do live** (Gemini real, API reiniciada entre pedido e aprovação):
+F5.10 com 201/404/404/404/409 e as listas esperadas; `reservar_area` (salão, taxa
+150.0): pendência com payload, 409 em `/mensagens`, recusa sem gravar, reinício
+com 19 eventos antes e depois, aprovação gerou `RSV-15DA9A01`, reenvio 409;
+`autorizar_visitante` (Joana Pereira, 2030-04-21): idem, visitantes `[]` → 1 linha.
+Autores após a confirmação: `user, especialista_*, especialista_*`. Banco restaurado.
+
+**Não coberto:** 429/503 reais não ocorreram no live (só testes com `run_async` falso).
+

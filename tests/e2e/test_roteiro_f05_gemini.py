@@ -26,7 +26,7 @@ PEDIDO_SALAO = "Reserve o salão de festas para 2030-04-20."
 
 
 @pytest.fixture
-async def cliente():
+async def cliente(banco):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=web.app), base_url="http://test", timeout=120
     ) as c:

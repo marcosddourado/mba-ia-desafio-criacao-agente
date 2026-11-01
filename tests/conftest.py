@@ -12,7 +12,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -23,16 +22,10 @@ os.environ["SESSION_DB_PATH"] = str(_DIR_ADK_TESTES / "sessoes.db")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_DIR_ADK_TESTES / 'condominio.db'}"
 
 
-@pytest.fixture(autouse=True)
-def arquivos_spike(tmp_path, monkeypatch):
-    """Aponta o JSON do spike (mapa de sessões) para `tmp_path`.
-
-    As reservas agora vivem no banco (Fase 3); só o mapa de sessões segue em JSON.
-    """
-    import web
-    sessoes = tmp_path / "spike_sessoes.json"
-    monkeypatch.setattr(web, "ARQUIVO_SESSOES", str(sessoes))
-    return SimpleNamespace(sessoes=sessoes, dir_adk=_DIR_ADK_TESTES)
+@pytest.fixture
+def dir_adk():
+    """Diretório temporário que hospeda o banco de sessões dos testes (nunca `.adk/`)."""
+    return _DIR_ADK_TESTES
 
 
 class ConfirmacaoFalsa:
